@@ -557,7 +557,9 @@ local function init()
     end
     
     clearScreen()
-    print("=== BRANCH MINER CONTROLLER ===")
+    print("================================")
+    print("   BRANCH MINER CONTROLLER")
+    print("================================")
     print("")
     
     -- Initialize project server (silent)
