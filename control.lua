@@ -68,7 +68,9 @@ local function switchProject(projectName)
 end
 
 local function getNextAvailableChannel()
-    local baseChannel = 100
+    -- Channel 100 is reserved for discovery
+    -- Projects start at 101
+    local baseChannel = 101
     local projects = listProjects()
     
     if #projects == 0 then

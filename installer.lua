@@ -131,8 +131,9 @@ local function saveProjectConfig(projectName, config)
 end
 
 local function getNextAvailableChannel()
-    -- Start at channel 100 to avoid conflicts with other systems
-    local baseChannel = 100
+    -- Channel 100 is reserved for discovery
+    -- Projects start at 101
+    local baseChannel = 101
     local projects = listProjects()
     
     if #projects == 0 then
