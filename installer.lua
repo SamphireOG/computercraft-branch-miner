@@ -370,9 +370,34 @@ local function main()
     end
     
     if hasLocalFiles then
-        print("Found local installation files!")
-        print("Using local files...")
+        print("Found local installation files.")
         print("")
+        print("Installation options:")
+        print("1. Use local files")
+        print("2. Re-download from GitHub")
+        print("")
+        print("Enter choice (1 or 2):")
+        local choice = read()
+        
+        if choice ~= "1" then
+            -- Delete old files and re-download
+            print("")
+            print("Removing old files...")
+            for _, filename in ipairs(fileList) do
+                if fs.exists(filename) then
+                    fs.delete(filename)
+                end
+            end
+            
+            if not downloadFromGitHub(fileList) then
+                print("")
+                print("GitHub download failed!")
+                return
+            end
+        else
+            print("")
+            print("Using local files...")
+        end
     else
         print("Installation files not found locally.")
         print("")
