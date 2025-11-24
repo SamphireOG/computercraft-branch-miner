@@ -3,6 +3,7 @@
 
 local config = require("config")
 local protocol = require("protocol")
+local projectServer = require("project-server")
 
 -- ========== PROJECT MANAGEMENT ==========
 
@@ -379,20 +380,39 @@ local function showProjectSelector()
     print("Available projects:")
     print("")
     
+    local selectableProjects = {}
     for i, projName in ipairs(availableProjects) do
-        local projConfig = loadProjectConfig(projName)
+        local summary = projectServer.getProjectSummary(projName)
         local isCurrent = currentProject and currentProject.name == projName
         local marker = isCurrent and "> " or "  "
         
-        if projConfig then
-            print(marker .. i .. ". " .. projName .. " (Ch:" .. (projConfig.channel or 42) .. ")")
-        else
-            print(marker .. i .. ". " .. projName)
+        if summary then
+            local status = ""
+            local selectable = false
+            
+            if summary.turtleCount > 0 then
+                status = summary.turtleCount .. " turtles"
+                selectable = true
+                table.insert(selectableProjects, i)
+            else
+                status = "No turtles (not ready)"
+            end
+            
+            print(marker .. i .. ". " .. summary.name .. " (Ch:" .. summary.channel .. ")")
+            print("      Status: " .. status)
+            print("")
         end
     end
     
-    print("")
-    print("Enter project number (or Q to cancel):")
+    if #selectableProjects == 0 then
+        print("No projects have turtles assigned!")
+        print("")
+        print("Press any key to continue...")
+        os.pullEvent("key")
+        return
+    end
+    
+    print("Enter project number (" .. table.concat(selectableProjects, ", ") .. ") or Q to cancel:")
     
     local input = read()
     if input:lower() == "q" then
@@ -400,7 +420,17 @@ local function showProjectSelector()
     end
     
     local choice = tonumber(input)
-    if choice and choice >= 1 and choice <= #availableProjects then
+    
+    -- Validate selection
+    local isValid = false
+    for _, validChoice in ipairs(selectableProjects) do
+        if choice == validChoice then
+            isValid = true
+            break
+        end
+    end
+    
+    if isValid then
         local projName = availableProjects[choice]
         print("")
         print("Switching to project: " .. projName)
@@ -415,8 +445,9 @@ local function showProjectSelector()
             os.pullEvent("key")
         end
     else
-        print("Invalid choice!")
-        sleep(1)
+        print("Invalid choice! Project has no turtles or doesn't exist.")
+        print("Press any key to continue...")
+        os.pullEvent("key")
     end
 end
 
@@ -526,7 +557,12 @@ local function init()
     print("=== Branch Miner Controller ===")
     print("")
     
-    -- Load available projects
+    -- Initialize project server
+    projectServer.init()
+    print("Project server started")
+    print("")
+    
+    -- Load available projects with turtle counts
     availableProjects = listProjects()
     
     if #availableProjects == 0 then
@@ -535,21 +571,50 @@ local function init()
         return false
     end
     
-    -- Show project selection
+    -- Show project selection with turtle counts
     print("Available projects:")
+    print("")
+    
+    local selectableProjects = {}
     for i, projName in ipairs(availableProjects) do
-        local projConfig = loadProjectConfig(projName)
-        if projConfig then
-            print(i .. ". " .. projName .. " (Channel " .. (projConfig.channel or 42) .. ")")
+        local summary = projectServer.getProjectSummary(projName)
+        if summary then
+            local status = ""
+            if summary.turtleCount > 0 then
+                status = summary.turtleCount .. " turtles"
+                table.insert(selectableProjects, i)
+            else
+                status = "No turtles (not ready)"
+            end
+            
+            print(i .. ". " .. projName)
+            print("   Channel: " .. summary.channel)
+            print("   Status: " .. status)
+            print("")
         end
     end
     
-    print("")
-    print("Select project (1-" .. #availableProjects .. "):")
+    if #selectableProjects == 0 then
+        print("No projects have turtles assigned!")
+        print("")
+        print("Run installer on a turtle to join a project.")
+        return false
+    end
+    
+    print("Select project (" .. table.concat(selectableProjects, ", ") .. "):")
     local choice = tonumber(read())
     
-    if not choice or choice < 1 or choice > #availableProjects then
-        print("Invalid choice!")
+    -- Validate selection
+    local isValid = false
+    for _, validChoice in ipairs(selectableProjects) do
+        if choice == validChoice then
+            isValid = true
+            break
+        end
+    end
+    
+    if not isValid then
+        print("Invalid choice! Project has no turtles or doesn't exist.")
         return false
     end
     
@@ -564,6 +629,8 @@ local function init()
     print("")
     print("Project: " .. currentProject.name)
     print("Channel: " .. config.MODEM_CHANNEL)
+    print("Turtles: " .. projectServer.getTurtleCount(currentProject.name))
+    print("")
     print("Press any key to start...")
     os.pullEvent("key")
     
@@ -581,7 +648,18 @@ local function main()
         return
     end
     
-    local success, err = pcall(mainLoop)
+    -- Run controller and project server in parallel
+    local success, err = pcall(function()
+        parallel.waitForAny(
+            mainLoop,
+            function()
+                -- Project server background loop
+                while running do
+                    projectServer.update()
+                end
+            end
+        )
+    end)
     
     if not success then
         clearScreen()
@@ -592,6 +670,7 @@ local function main()
     
     -- Cleanup
     clearScreen()
+    projectServer.stop()
     protocol.close()
     print("Controller stopped")
 end

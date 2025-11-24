@@ -38,6 +38,16 @@ protocol.MSG_TYPES = {
     -- Acknowledgments
     ACK = "ACK",                             -- Generic acknowledgment
     NACK = "NACK",                           -- Negative acknowledgment
+    
+    -- Project Discovery Protocol (Channel 100)
+    PROJECT_ANNOUNCE = "PROJECT_ANNOUNCE",           -- PC broadcasts available projects
+    PROJECT_LIST_REQUEST = "PROJECT_LIST_REQUEST",   -- Turtle requests project list
+    PROJECT_LIST_RESPONSE = "PROJECT_LIST_RESPONSE", -- PC sends project list with turtle counts
+    PROJECT_JOIN_REQUEST = "PROJECT_JOIN_REQUEST",   -- Turtle wants to join project
+    PROJECT_JOIN_RESPONSE = "PROJECT_JOIN_RESPONSE", -- PC assigns channel & approves
+    PROJECT_JOIN_CONFIRM = "PROJECT_JOIN_CONFIRM",   -- Turtle confirms joining
+    TURTLE_ONLINE = "TURTLE_ONLINE",                 -- Turtle announces it's online
+    TURTLE_OFFLINE = "TURTLE_OFFLINE",               -- Turtle announces it's going offline
 }
 
 -- ========== MODEM MANAGEMENT ==========

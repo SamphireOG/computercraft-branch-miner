@@ -9,7 +9,8 @@ print("Cleaning old files...")
 -- Delete old installation files to ensure fresh download
 local files = {
     "config.lua", "protocol.lua", "state.lua", "utils.lua",
-    "coordinator.lua", "miner.lua", "control.lua", "installer.lua"
+    "coordinator.lua", "miner.lua", "control.lua", "installer.lua",
+    "project-server.lua", "project-client.lua"
 }
 
 for _, file in ipairs(files) do

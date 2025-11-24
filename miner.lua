@@ -6,6 +6,7 @@ local protocol = require("protocol")
 local state = require("state")
 local utils = require("utils")
 local coordinator = require("coordinator")
+local projectClient = require("project-client")
 
 -- ========== GLOBAL STATE ==========
 
@@ -28,6 +29,34 @@ local function initializeMiner()
     
     -- Initialize protocol
     protocol.init()
+    
+    -- Initialize project client and reconnect if assigned
+    projectClient.init()
+    local assignment = projectClient.loadAssignment()
+    
+    if assignment then
+        print("Assigned to project: " .. assignment.projectName)
+        print("Channel: " .. assignment.channel)
+        print("")
+        
+        -- Reconnect to project
+        local success, err = projectClient.reconnect()
+        if not success then
+            print("WARNING: Failed to reconnect")
+            print(err)
+        else
+            print("Reconnected successfully!")
+            
+            -- Update config channel
+            config.MODEM_CHANNEL = assignment.channel
+        end
+        print("")
+    else
+        print("WARNING: No project assignment found!")
+        print("Run installer to join a project.")
+        print("")
+        return false
+    end
     
     -- Try to load saved state
     local savedState, err = state.load()

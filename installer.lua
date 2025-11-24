@@ -11,12 +11,14 @@ local FILES = {
         "state.lua",
         "utils.lua",
         "coordinator.lua",
-        "miner.lua"
+        "miner.lua",
+        "project-client.lua"
     },
     controller = {
         "config.lua",
         "protocol.lua",
-        "control.lua"
+        "control.lua",
+        "project-server.lua"
     }
 }
 
@@ -149,7 +151,105 @@ local function getNextAvailableChannel()
     return maxChannel + 1
 end
 
-local function configureSystem(deviceType)
+local function configureTurtle()
+    -- Turtles use discovery protocol
+    print("=== Turtle Project Discovery ===")
+    print("")
+    
+    -- Load project client
+    local client = require("project-client")
+    client.init()
+    
+    -- Check for existing assignment
+    local existing = client.loadAssignment()
+    if existing then
+        print("Already assigned to: " .. existing.projectName)
+        print("Channel: " .. existing.channel)
+        print("")
+        print("1. Keep assignment")
+        print("2. Join different project")
+        print("")
+        print("Enter choice (1 or 2):")
+        local choice = read()
+        
+        if choice == "1" then
+            return true, existing
+        else
+            client.clearAssignment()
+        end
+    end
+    
+    -- Discover available projects
+    print("")
+    print("Searching for projects...")
+    print("(Make sure pocket computer is running!)")
+    print("")
+    
+    local projects = client.discoverProjects(10)
+    
+    if #projects == 0 then
+        print("ERROR: No projects found!")
+        print("")
+        print("Make sure:")
+        print("1. Pocket computer is on")
+        print("2. Projects have been created")
+        print("3. You're in range")
+        return false
+    end
+    
+    -- Show available projects
+    print("")
+    print("Available projects:")
+    print("")
+    
+    for i, proj in ipairs(projects) do
+        print(i .. ". " .. proj.name)
+        print("   Channel: " .. proj.channel)
+        print("   Turtles: " .. proj.turtleCount)
+        print("   Length: " .. proj.tunnelLength .. " blocks")
+        print("")
+    end
+    
+    print("Select project (1-" .. #projects .. "):")
+    local choice = tonumber(read())
+    
+    if not choice or choice < 1 or choice > #projects then
+        print("Invalid choice!")
+        return false
+    end
+    
+    local selectedProject = projects[choice]
+    
+    -- Join project
+    print("")
+    local success, result = client.joinProject(selectedProject.name)
+    
+    if not success then
+        print("ERROR: Failed to join project")
+        print("Reason: " .. (result or "Unknown"))
+        return false
+    end
+    
+    print("Successfully joined: " .. selectedProject.name)
+    print("Channel: " .. result.channel)
+    
+    if result.isFirstTurtle then
+        print("")
+        print("=== FIRST TURTLE ===")
+        print("This turtle will set the home base!")
+        print("")
+        print("IMPORTANT: Position this turtle at")
+        print("the home base location before continuing.")
+        print("")
+        print("Press Enter when ready...")
+        read()
+    end
+    
+    return true, result
+end
+
+local function configurePocketComputer()
+    -- Pocket computers create projects locally
     print("=== Project Configuration ===")
     print("")
     
@@ -158,7 +258,7 @@ local function configureSystem(deviceType)
     
     print("Setup mode:")
     print("1. Create new project")
-    print("2. Join existing project")
+    print("2. Manage existing project")
     print("")
     
     if #projects > 0 then
@@ -242,20 +342,37 @@ local function configureSystem(deviceType)
         end
         
         print("Project '" .. projectName .. "' created!")
+        print("")
+        print("Project will be broadcast on discovery channel.")
+        print("Turtles can now discover and join this project!")
         
     else
-        -- Join existing project
-        print("")
-        print("Enter project name:")
-        projectName = read()
+        -- Manage existing project
+        if #projects == 0 then
+            print("No projects found!")
+            print("Create a project first.")
+            return false
+        end
         
+        print("")
+        print("Select project:")
+        for i, projName in ipairs(projects) do
+            print(i .. ". " .. projName)
+        end
+        print("")
+        print("Enter number:")
+        
+        local choice = tonumber(read())
+        if not choice or choice < 1 or choice > #projects then
+            print("Invalid choice!")
+            return false
+        end
+        
+        projectName = projects[choice]
         projectConfig = loadProjectConfig(projectName)
+        
         if not projectConfig then
-            print("ERROR: Project '" .. projectName .. "' not found!")
-            print("Available projects:")
-            for i, proj in ipairs(projects) do
-                print("  - " .. proj)
-            end
+            print("ERROR: Could not load project!")
             return false
         end
         
@@ -266,6 +383,18 @@ local function configureSystem(deviceType)
         print("  Layers: " .. projectConfig.numLayers)
         print("  Start Y: " .. projectConfig.startY)
     end
+    
+    return true, projectConfig
+end
+
+local function configureSystem(deviceType)
+    -- Wrapper for compatibility
+    if deviceType == "turtle" then
+        return configureTurtle()
+    else
+        return configurePocketComputer()
+    end
+end
     
     print("")
     
@@ -538,8 +667,16 @@ local function main()
         end
     end
     
-    -- Project-based configuration (handles device-specific setup too)
-    if not configureSystem(deviceType) then
+    -- Project-based configuration
+    local configSuccess, result
+    
+    if deviceType == "turtle" then
+        configSuccess, result = configureTurtle()
+    else
+        configSuccess, result = configurePocketComputer()
+    end
+    
+    if not configSuccess then
         print("Configuration failed!")
         return
     end
