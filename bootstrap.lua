@@ -4,7 +4,23 @@
 local GITHUB_URL = "https://raw.githubusercontent.com/SamphireOG/computercraft-branch-miner/main/installer.lua"
 
 print("=== Branch Miner Bootstrap ===")
-print("Downloading installer...")
+print("Cleaning old files...")
+
+-- Delete old installation files to ensure fresh download
+local files = {
+    "config.lua", "protocol.lua", "state.lua", "utils.lua",
+    "coordinator.lua", "miner.lua", "control.lua", "installer.lua"
+}
+
+for _, file in ipairs(files) do
+    if fs.exists(file) then
+        fs.delete(file)
+        print("Removed old: " .. file)
+    end
+end
+
+print("")
+print("Downloading latest installer...")
 
 local response = http.get(GITHUB_URL)
 if not response then

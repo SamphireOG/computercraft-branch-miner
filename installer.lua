@@ -83,135 +83,233 @@ end
 
 -- ========== SETUP FUNCTIONS ==========
 
-local function setupTurtle()
-    print("=== Turtle Setup ===")
-    print("")
-    
-    -- Check for advanced mining turtle
-    if not turtle then
-        print("ERROR: This must be run on a turtle!")
-        return false
-    end
-    
-    -- Check for wireless modem
-    local modem = peripheral.find("modem", function(name, modem)
-        return modem.isWireless()
-    end)
-    
-    if not modem then
-        print("ERROR: No wireless modem found!")
-        print("Attach an Ender Modem to the turtle.")
-        return false
-    end
-    
-    print("Found wireless modem: " .. peripheral.getName(modem))
-    print("")
-    
-    -- Set label
-    print("Enter turtle label (or press Enter for default):")
-    local label = read()
-    
-    if label and label ~= "" then
-        os.setComputerLabel(label)
-        print("Set label: " .. label)
-    else
-        local defaultLabel = "Miner-" .. os.getComputerID()
-        os.setComputerLabel(defaultLabel)
-        print("Set label: " .. defaultLabel)
-    end
-    
-    print("")
-    print("Turtle ID: " .. os.getComputerID())
-    print("Label: " .. os.getComputerLabel())
-    print("")
-    
-    return true
+-- ========== PROJECT MANAGEMENT ==========
+
+local function getProjectFilename(projectName)
+    return "project_" .. projectName .. ".cfg"
 end
 
-local function setupController()
-    print("=== Controller Setup ===")
-    print("")
-    
-    -- Check for pocket computer
-    if turtle then
-        print("ERROR: This appears to be a turtle!")
-        print("Run installer on a pocket computer for controller setup.")
-        return false
+local function saveProjectConfig(projectName, config)
+    local filename = getProjectFilename(projectName)
+    local file = fs.open(filename, "w")
+    if file then
+        file.write(textutils.serialize(config))
+        file.close()
+        return true
     end
-    
-    -- Check for wireless modem
-    local modem = peripheral.find("modem")
-    
-    if not modem then
-        print("ERROR: No wireless modem found!")
-        print("Pocket computers have built-in modems.")
-        return false
-    end
-    
-    print("Found wireless modem")
-    print("")
-    
-    -- Set label
-    print("Enter controller label (or press Enter for default):")
-    local label = read()
-    
-    if label and label ~= "" then
-        os.setComputerLabel(label)
-        print("Set label: " .. label)
-    else
-        os.setComputerLabel("Controller")
-        print("Set label: Controller")
-    end
-    
-    print("")
-    return true
+    return false
 end
 
-local function configureSystem()
-    print("=== System Configuration ===")
+local function loadProjectConfig(projectName)
+    local filename = getProjectFilename(projectName)
+    if not fs.exists(filename) then
+        return nil, "Project not found"
+    end
+    
+    local file = fs.open(filename, "r")
+    if not file then
+        return nil, "Could not read project"
+    end
+    
+    local content = file.readAll()
+    file.close()
+    
+    return textutils.unserialize(content)
+end
+
+local function listProjects()
+    local projects = {}
+    for _, file in ipairs(fs.list("/")) do
+        if file:match("^project_(.+)%.cfg$") then
+            local name = file:match("^project_(.+)%.cfg$")
+            table.insert(projects, name)
+        end
+    end
+    return projects
+end
+
+local function configureSystem(deviceType)
+    print("=== Project Configuration ===")
     print("")
     
-    -- Use relative coordinates - wherever turtle is now becomes (0,0,0)
-    print("IMPORTANT: This turtle's current position")
-    print("will become HOME BASE (0,0,0)")
+    -- Check for existing projects
+    local projects = listProjects()
+    
+    print("Setup mode:")
+    print("1. Create new project")
+    print("2. Join existing project")
     print("")
-    print("Make sure the turtle is where you want")
-    print("it to start mining from!")
+    
+    if #projects > 0 then
+        print("Existing projects:")
+        for i, proj in ipairs(projects) do
+            print("  - " .. proj)
+        end
+        print("")
+    end
+    
+    print("Enter choice (1 or 2):")
+    local choice = read()
+    
+    local projectName
+    local projectConfig
+    
+    if choice == "1" then
+        -- Create new project
+        print("")
+        print("=== New Project Setup ===")
+        print("")
+        print("Enter project name:")
+        projectName = read()
+        
+        if projectName == "" then
+            print("Invalid project name")
+            return false
+        end
+        
+        print("")
+        print("Enter tunnel configuration:")
+        print("Tunnel length (default 64):")
+        local length = tonumber(read()) or 64
+        
+        print("Number of layers (default 3):")
+        local layers = tonumber(read()) or 3
+        
+        print("Starting Y-level relative to base (default -59):")
+        local startY = tonumber(read()) or -59
+        
+        projectConfig = {
+            name = projectName,
+            tunnelLength = length,
+            numLayers = layers,
+            startY = startY,
+            createdAt = os.epoch("utc")
+        }
+        
+        print("")
+        print("Project Configuration:")
+        print("  Name: " .. projectName)
+        print("  Tunnel length: " .. length)
+        print("  Layers: " .. layers)
+        print("  Start Y: " .. startY)
+        print("")
+        print("Save project? (Y/N)")
+        
+        local confirm = read()
+        if confirm:lower() ~= "y" then
+            print("Project creation cancelled")
+            return false
+        end
+        
+        if not saveProjectConfig(projectName, projectConfig) then
+            print("ERROR: Could not save project")
+            return false
+        end
+        
+        print("Project '" .. projectName .. "' created!")
+        
+    else
+        -- Join existing project
+        print("")
+        print("Enter project name:")
+        projectName = read()
+        
+        projectConfig = loadProjectConfig(projectName)
+        if not projectConfig then
+            print("ERROR: Project '" .. projectName .. "' not found!")
+            print("Available projects:")
+            for i, proj in ipairs(projects) do
+                print("  - " .. proj)
+            end
+            return false
+        end
+        
+        print("")
+        print("Loaded project: " .. projectName)
+        print("  Tunnel length: " .. projectConfig.tunnelLength)
+        print("  Layers: " .. projectConfig.numLayers)
+        print("  Start Y: " .. projectConfig.startY)
+    end
+    
     print("")
-    print("Press Enter to continue...")
-    read()
+    
+    -- Device-specific setup
+    if deviceType == "turtle" then
+        print("=== Turtle Setup ===")
+        print("")
+        
+        -- Check for wireless modem
+        local modem = peripheral.find("modem", function(name, m)
+            return m.isWireless()
+        end)
+        
+        if not modem then
+            print("ERROR: No wireless modem found!")
+            print("Attach an Ender Modem to the turtle.")
+            return false
+        end
+        
+        print("Found wireless modem: " .. peripheral.getName(modem))
+        print("")
+        
+        -- Set label
+        print("Enter turtle label (or press Enter for default):")
+        local label = read()
+        
+        if label and label ~= "" then
+            os.setComputerLabel(label)
+            print("Set label: " .. label)
+        else
+            print("Using default: " .. os.getComputerLabel())
+        end
+        
+        print("")
+        print("=== Home Base Position ===")
+        print("")
+        print("IMPORTANT: This turtle's current position")
+        print("will become its HOME BASE (0,0,0)")
+        print("")
+        print("Make sure the turtle is where you want")
+        print("it to start mining from!")
+        print("")
+        print("Press Enter to continue...")
+        read()
+    else
+        -- Controller setup
+        print("=== Controller Setup ===")
+        print("")
+        
+        -- Check for wireless modem
+        local modem = peripheral.find("modem")
+        
+        if not modem then
+            print("ERROR: No wireless modem found!")
+            print("Pocket computers have built-in modems.")
+            return false
+        end
+        
+        print("Found wireless modem")
+        print("")
+        
+        -- Set label
+        print("Enter controller label (or press Enter for default):")
+        local label = read()
+        
+        if label and label ~= "" then
+            os.setComputerLabel(label)
+            print("Set label: " .. label)
+        else
+            print("Using default: " .. os.getComputerLabel())
+        end
+        
+        print("")
+    end
     
     local x = 0
     local y = 0
     local z = 0
     
-    print("")
-    print("Enter tunnel configuration:")
-    print("Tunnel length (default 64):")
-    local length = tonumber(read()) or 64
-    
-    print("Number of layers (default 3):")
-    local layers = tonumber(read()) or 3
-    
-    print("Starting Y-level relative to here (default -59):")
-    local startY = tonumber(read()) or -59
-    
-    print("")
-    print("Configuration:")
-    print("  Home: Current position (0,0,0 relative)")
-    print("  Tunnel length: " .. length)
-    print("  Layers: " .. layers)
-    print("  Start Y: " .. startY)
-    print("")
-    print("Save configuration? (Y/N)")
-    
-    local confirm = read()
-    if confirm:lower() ~= "y" then
-        print("Configuration cancelled")
-        return false
-    end
-    
-    -- Update config file
+    -- Update config file with project settings
     local configFile = fs.open("config.lua", "r")
     if not configFile then
         print("ERROR: config.lua not found!")
@@ -221,13 +319,13 @@ local function configureSystem()
     local content = configFile.readAll()
     configFile.close()
     
-    -- Replace values
+    -- Replace values from project config
     content = content:gsub("HOME_X = %d+", "HOME_X = " .. x)
     content = content:gsub("HOME_Y = %d+", "HOME_Y = " .. y)
     content = content:gsub("HOME_Z = %d+", "HOME_Z = " .. z)
-    content = content:gsub("TUNNEL_LENGTH = %d+", "TUNNEL_LENGTH = " .. length)
-    content = content:gsub("NUM_LAYERS = %d+", "NUM_LAYERS = " .. layers)
-    content = content:gsub("START_Y = %-?%d+", "START_Y = " .. startY)
+    content = content:gsub("TUNNEL_LENGTH = %d+", "TUNNEL_LENGTH = " .. projectConfig.tunnelLength)
+    content = content:gsub("NUM_LAYERS = %d+", "NUM_LAYERS = " .. projectConfig.numLayers)
+    content = content:gsub("START_Y = %-?%d+", "START_Y = " .. projectConfig.startY)
     
     -- Update chest positions (relative to home)
     content = content:gsub(
@@ -248,7 +346,9 @@ local function configureSystem()
     configOut.write(content)
     configOut.close()
     
+    print("")
     print("Configuration saved!")
+    print("Project: " .. projectName)
     return true
 end
 
@@ -402,21 +502,8 @@ local function main()
         end
     end
     
-    -- Device-specific setup
-    local setupSuccess
-    if deviceType == "turtle" then
-        setupSuccess = setupTurtle()
-    else
-        setupSuccess = setupController()
-    end
-    
-    if not setupSuccess then
-        print("Setup failed!")
-        return
-    end
-    
-    -- Configuration
-    if not configureSystem() then
+    -- Project-based configuration (handles device-specific setup too)
+    if not configureSystem(deviceType) then
         print("Configuration failed!")
         return
     end
