@@ -177,12 +177,8 @@ function server.handleJoinRequest(message)
         success = true
     })
     
-    print("[Server] Turtle " .. turtleID .. " (" .. turtleLabel .. ") joined " .. projectName)
-    
-    -- If first turtle and no home base, we'll prompt user later
-    if isFirstTurtle and not project.homeBase then
-        print("[Server] First turtle! Home base needs to be set.")
-    end
+    -- Silent operation for clean UX
+    -- (Turtle join logged internally)
 end
 
 function server.handleMessage(message)
@@ -223,7 +219,7 @@ function server.init()
     
     if protocol.modem then
         protocol.modem.open(DISCOVERY_CHANNEL)
-        print("[Server] Listening on discovery channel " .. DISCOVERY_CHANNEL)
+        -- Silent listening for clean UX
     end
     
     server.isRunning = true

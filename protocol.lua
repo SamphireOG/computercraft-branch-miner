@@ -67,7 +67,7 @@ function protocol.init()
     -- Open communication channel
     protocol.modem.open(config.MODEM_CHANNEL)
     
-    print("Protocol initialized on channel " .. config.MODEM_CHANNEL)
+    -- Silent initialization for clean UX
     return true
 end
 

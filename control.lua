@@ -549,59 +549,80 @@ end
 local function init()
     -- Check for modem
     if not peripheral.find("modem") then
+        clearScreen()
         print("ERROR: No wireless modem found!")
+        print("")
         print("Attach an Ender Modem to use this controller.")
         return false
     end
     
-    print("=== Branch Miner Controller ===")
+    clearScreen()
+    print("=== BRANCH MINER CONTROLLER ===")
     print("")
     
-    -- Initialize project server
+    -- Initialize project server (silent)
     projectServer.init()
-    print("Project server started")
-    print("")
     
-    -- Load available projects with turtle counts
+    -- Load available projects
     availableProjects = listProjects()
     
     if #availableProjects == 0 then
         print("No projects found!")
-        print("Run installer to create a project first.")
+        print("")
+        print("Run installer to create a project.")
         return false
     end
     
-    -- Show project selection with turtle counts
-    print("Available projects:")
-    print("")
-    
+    -- Build project list with turtle counts
     local selectableProjects = {}
+    local projectsWithTurtles = {}
+    local projectsWithoutTurtles = {}
+    
     for i, projName in ipairs(availableProjects) do
         local summary = projectServer.getProjectSummary(projName)
         if summary then
-            local status = ""
             if summary.turtleCount > 0 then
-                status = summary.turtleCount .. " turtles"
+                table.insert(projectsWithTurtles, {
+                    index = i,
+                    name = projName,
+                    turtles = summary.turtleCount
+                })
                 table.insert(selectableProjects, i)
             else
-                status = "No turtles (not ready)"
+                table.insert(projectsWithoutTurtles, {
+                    index = i,
+                    name = projName
+                })
             end
-            
-            print(i .. ". " .. projName)
-            print("   Channel: " .. summary.channel)
-            print("   Status: " .. status)
-            print("")
         end
     end
     
-    if #selectableProjects == 0 then
-        print("No projects have turtles assigned!")
+    -- Show active projects
+    if #projectsWithTurtles > 0 then
+        print("ACTIVE PROJECTS:")
+        for _, proj in ipairs(projectsWithTurtles) do
+            print(string.format(" %d. %s (%d turtles)", proj.index, proj.name, proj.turtles))
+        end
         print("")
-        print("Run installer on a turtle to join a project.")
+    end
+    
+    -- Show inactive projects
+    if #projectsWithoutTurtles > 0 then
+        print("INACTIVE (need turtles):")
+        for _, proj in ipairs(projectsWithoutTurtles) do
+            print(string.format(" %d. %s", proj.index, proj.name))
+        end
+        print("")
+    end
+    
+    if #selectableProjects == 0 then
+        print("No active projects!")
+        print("Run installer on a turtle to get started.")
         return false
     end
     
-    print("Select project (" .. table.concat(selectableProjects, ", ") .. "):")
+    -- Select project
+    print("Select project: ")
     local choice = tonumber(read())
     
     -- Validate selection
@@ -614,7 +635,9 @@ local function init()
     end
     
     if not isValid then
-        print("Invalid choice! Project has no turtles or doesn't exist.")
+        print("")
+        print("Invalid! That project has no turtles.")
+        sleep(2)
         return false
     end
     
@@ -627,16 +650,11 @@ local function init()
     end
     
     print("")
-    print("Project: " .. currentProject.name)
-    print("Channel: " .. config.MODEM_CHANNEL)
-    print("Turtles: " .. projectServer.getTurtleCount(currentProject.name))
-    print("")
-    print("Press any key to start...")
-    os.pullEvent("key")
+    print("Loading " .. currentProject.name .. "...")
+    sleep(0.5)
     
     -- Request initial status from all turtles
     requestAllStatus()
-    sleep(1)
     
     return true
 end
