@@ -4,6 +4,68 @@
 local config = require("config")
 local protocol = require("protocol")
 
+-- ========== PROJECT MANAGEMENT ==========
+
+local currentProject = nil
+local availableProjects = {}
+
+local function getProjectFilename(projectName)
+    return "project_" .. projectName .. ".cfg"
+end
+
+local function listProjects()
+    local projects = {}
+    for _, file in ipairs(fs.list("/")) do
+        if file:match("^project_(.+)%.cfg$") then
+            local name = file:match("^project_(.+)%.cfg$")
+            table.insert(projects, name)
+        end
+    end
+    return projects
+end
+
+local function loadProjectConfig(projectName)
+    local filename = getProjectFilename(projectName)
+    if not fs.exists(filename) then
+        return nil
+    end
+    
+    local file = fs.open(filename, "r")
+    if not file then
+        return nil
+    end
+    
+    local content = file.readAll()
+    file.close()
+    
+    return textutils.unserialize(content)
+end
+
+local function switchProject(projectName)
+    local projectConfig = loadProjectConfig(projectName)
+    if not projectConfig then
+        return false, "Project not found"
+    end
+    
+    -- Close old modem connection
+    if protocol.modem then
+        protocol.close()
+    end
+    
+    -- Switch to new project's channel
+    currentProject = projectConfig
+    config.MODEM_CHANNEL = projectConfig.channel or 42
+    
+    -- Reinitialize protocol with new channel
+    protocol.init()
+    
+    -- Clear old turtle data
+    turtles = {}
+    selectedTurtle = nil
+    
+    return true
+end
+
 -- ========== GUI STATE ==========
 
 local turtles = {}  -- Tracked turtles {id -> data}
@@ -11,6 +73,7 @@ local selectedTurtle = nil
 local scrollOffset = 0
 local running = true
 local lastUpdate = 0
+local showProjectSelector = false
 
 -- ========== COLORS ==========
 
@@ -73,6 +136,13 @@ local function drawHeader()
         end
     end
     
+    -- Show project info
+    local projectName = currentProject and currentProject.name or "No Project"
+    term.write("Project: " .. projectName .. " | Ch:" .. config.MODEM_CHANNEL)
+    
+    term.setCursorPos(1, 3)
+    term.clearLine()
+    
     local status = "Turtles: " .. activeCount .. " active"
     if miningCount > 0 then
         status = status .. ", " .. miningCount .. " mining"
@@ -82,6 +152,9 @@ local function drawHeader()
     end
     
     term.write(status)
+    term.setTextColor(colorScheme.idle)
+    term.write(" | Press 'P' for projects")
+    term.setTextColor(colorScheme.text)
 end
 
 local function drawTurtleList()
@@ -284,6 +357,69 @@ local function cleanupOffline()
     end
 end
 
+-- ========== PROJECT SELECTOR ==========
+
+local function showProjectSelector()
+    clearScreen()
+    
+    print("=== Project Selector ===")
+    print("")
+    
+    availableProjects = listProjects()
+    
+    if #availableProjects == 0 then
+        print("No projects found!")
+        print("Run installer to create a project first.")
+        print("")
+        print("Press any key to continue...")
+        os.pullEvent("key")
+        return
+    end
+    
+    print("Available projects:")
+    print("")
+    
+    for i, projName in ipairs(availableProjects) do
+        local projConfig = loadProjectConfig(projName)
+        local isCurrent = currentProject and currentProject.name == projName
+        local marker = isCurrent and "> " or "  "
+        
+        if projConfig then
+            print(marker .. i .. ". " .. projName .. " (Ch:" .. (projConfig.channel or 42) .. ")")
+        else
+            print(marker .. i .. ". " .. projName)
+        end
+    end
+    
+    print("")
+    print("Enter project number (or Q to cancel):")
+    
+    local input = read()
+    if input:lower() == "q" then
+        return
+    end
+    
+    local choice = tonumber(input)
+    if choice and choice >= 1 and choice <= #availableProjects then
+        local projName = availableProjects[choice]
+        print("")
+        print("Switching to project: " .. projName)
+        
+        local success, err = switchProject(projName)
+        if success then
+            print("Switched successfully!")
+            sleep(1)
+        else
+            print("ERROR: " .. (err or "Unknown error"))
+            print("Press any key to continue...")
+            os.pullEvent("key")
+        end
+    else
+        print("Invalid choice!")
+        sleep(1)
+    end
+end
+
 -- ========== INPUT HANDLING ==========
 
 local function handleInput()
@@ -291,6 +427,10 @@ local function handleInput()
     
     if key == keys.q then
         running = false
+        
+    elseif key == keys.p and not selectedTurtle then
+        -- Project selector (only if no turtle selected)
+        showProjectSelector()
         
     elseif key == keys.f then
         requestAllStatus()
@@ -383,11 +523,47 @@ local function init()
         return false
     end
     
-    -- Initialize protocol
-    protocol.init()
-    
     print("=== Branch Miner Controller ===")
-    print("Listening on channel " .. config.MODEM_CHANNEL)
+    print("")
+    
+    -- Load available projects
+    availableProjects = listProjects()
+    
+    if #availableProjects == 0 then
+        print("No projects found!")
+        print("Run installer to create a project first.")
+        return false
+    end
+    
+    -- Show project selection
+    print("Available projects:")
+    for i, projName in ipairs(availableProjects) do
+        local projConfig = loadProjectConfig(projName)
+        if projConfig then
+            print(i .. ". " .. projName .. " (Channel " .. (projConfig.channel or 42) .. ")")
+        end
+    end
+    
+    print("")
+    print("Select project (1-" .. #availableProjects .. "):")
+    local choice = tonumber(read())
+    
+    if not choice or choice < 1 or choice > #availableProjects then
+        print("Invalid choice!")
+        return false
+    end
+    
+    local projName = availableProjects[choice]
+    local success, err = switchProject(projName)
+    
+    if not success then
+        print("ERROR: " .. (err or "Unknown error"))
+        return false
+    end
+    
+    print("")
+    print("Project: " .. currentProject.name)
+    print("Channel: " .. config.MODEM_CHANNEL)
     print("Press any key to start...")
     os.pullEvent("key")
     

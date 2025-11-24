@@ -89,6 +89,27 @@ local function getProjectFilename(projectName)
     return "project_" .. projectName .. ".cfg"
 end
 
+local function getNextAvailableChannel()
+    -- Start at channel 100 to avoid conflicts with other systems
+    local baseChannel = 100
+    local projects = listProjects()
+    
+    if #projects == 0 then
+        return baseChannel
+    end
+    
+    -- Find highest used channel
+    local maxChannel = baseChannel - 1
+    for _, projName in ipairs(projects) do
+        local config = loadProjectConfig(projName)
+        if config and config.channel and config.channel > maxChannel then
+            maxChannel = config.channel
+        end
+    end
+    
+    return maxChannel + 1
+end
+
 local function saveProjectConfig(projectName, config)
     local filename = getProjectFilename(projectName)
     local file = fs.open(filename, "w")
@@ -178,8 +199,21 @@ local function configureSystem(deviceType)
         print("Starting Y-level relative to base (default -59):")
         local startY = tonumber(read()) or -59
         
+        -- Auto-assign unique channel
+        local channel = getNextAvailableChannel()
+        
+        print("")
+        print("Communication channel:")
+        print("Auto-assigned: " .. channel)
+        print("Use custom? (Enter number or press Enter to accept):")
+        local customChannel = tonumber(read())
+        if customChannel and customChannel >= 1 and customChannel <= 65535 then
+            channel = customChannel
+        end
+        
         projectConfig = {
             name = projectName,
+            channel = channel,
             tunnelLength = length,
             numLayers = layers,
             startY = startY,
@@ -189,6 +223,7 @@ local function configureSystem(deviceType)
         print("")
         print("Project Configuration:")
         print("  Name: " .. projectName)
+        print("  Channel: " .. channel)
         print("  Tunnel length: " .. length)
         print("  Layers: " .. layers)
         print("  Start Y: " .. startY)
@@ -226,6 +261,7 @@ local function configureSystem(deviceType)
         
         print("")
         print("Loaded project: " .. projectName)
+        print("  Channel: " .. (projectConfig.channel or 42))
         print("  Tunnel length: " .. projectConfig.tunnelLength)
         print("  Layers: " .. projectConfig.numLayers)
         print("  Start Y: " .. projectConfig.startY)
@@ -323,6 +359,7 @@ local function configureSystem(deviceType)
     content = content:gsub("HOME_X = %d+", "HOME_X = " .. x)
     content = content:gsub("HOME_Y = %d+", "HOME_Y = " .. y)
     content = content:gsub("HOME_Z = %d+", "HOME_Z = " .. z)
+    content = content:gsub("MODEM_CHANNEL = %d+", "MODEM_CHANNEL = " .. (projectConfig.channel or 42))
     content = content:gsub("TUNNEL_LENGTH = %d+", "TUNNEL_LENGTH = " .. projectConfig.tunnelLength)
     content = content:gsub("NUM_LAYERS = %d+", "NUM_LAYERS = " .. projectConfig.numLayers)
     content = content:gsub("START_Y = %-?%d+", "START_Y = " .. projectConfig.startY)
