@@ -474,25 +474,24 @@ local function main()
     -- Detect device type
     local deviceType
     if turtle then
-        print("Detected: Turtle")
+        print("Detected: Mining Turtle")
+        print("")
         deviceType = "turtle"
     else
         print("Detected: Computer/Pocket Computer")
         print("")
-        print("Install as:")
-        print("1. Controller (Pocket Computer)")
-        print("2. Coordinator (Desktop Computer)")
+        print("This will install the controller.")
+        print("Use a Pocket Computer for wireless control.")
         print("")
-        print("Enter choice (1 or 2):")
+        print("Continue? (Y/N)")
         local choice = read()
         
-        if choice == "1" then
-            deviceType = "controller"
-        else
-            print("Coordinator mode not yet implemented.")
-            print("Please use a pocket computer for the controller.")
+        if choice:lower() ~= "y" then
+            print("Installation cancelled")
             return
         end
+        
+        deviceType = "controller"
     end
     
     print("")
