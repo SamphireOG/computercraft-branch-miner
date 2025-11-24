@@ -14,7 +14,7 @@ local lastUpdate = 0
 
 -- ========== COLORS ==========
 
-local colors = {
+local colorScheme = {
     header = colors.blue,
     active = colors.lime,
     warning = colors.yellow,
@@ -28,8 +28,8 @@ local colors = {
 -- ========== SCREEN HELPERS ==========
 
 local function clearScreen()
-    term.setBackgroundColor(colors.background)
-    term.setTextColor(colors.text)
+    term.setBackgroundColor(colorScheme.background)
+    term.setTextColor(colorScheme.text)
     term.clear()
     term.setCursorPos(1, 1)
 end
@@ -44,8 +44,8 @@ local function drawHeader()
     local w, h = term.getSize()
     
     term.setCursorPos(1, 1)
-    term.setBackgroundColor(colors.header)
-    term.setTextColor(colors.white)
+    term.setBackgroundColor(colorScheme.header)
+    term.setTextColor(colorScheme.text)
     term.clearLine()
     
     local title = " Branch Miner Control "
@@ -54,8 +54,8 @@ local function drawHeader()
     
     -- Status line
     term.setCursorPos(1, 2)
-    term.setBackgroundColor(colors.background)
-    term.setTextColor(colors.text)
+    term.setBackgroundColor(colorScheme.background)
+    term.setTextColor(colorScheme.text)
     term.clearLine()
     
     local activeCount = 0
@@ -91,8 +91,8 @@ local function drawTurtleList()
     
     -- List header
     term.setCursorPos(1, listStart - 1)
-    term.setBackgroundColor(colors.background)
-    term.setTextColor(colors.lightGray)
+    term.setBackgroundColor(colorScheme.background)
+    term.setTextColor(colorScheme.idle)
     term.clearLine()
     term.write("ID  Label         Status      Fuel  Inv  Position")
     
@@ -109,7 +109,7 @@ local function drawTurtleList()
         local y = listStart + i - 1
         
         term.setCursorPos(1, y)
-        term.setBackgroundColor(colors.background)
+        term.setBackgroundColor(colorScheme.background)
         term.clearLine()
         
         if turtleList[idx] then
@@ -117,15 +117,15 @@ local function drawTurtleList()
             local id = turtleList[idx].id
             
             -- Status color
-            local statusColor = colors.idle
+            local statusColor = colorScheme.idle
             if turtle.status == "mining" then
-                statusColor = colors.active
+                statusColor = colorScheme.active
             elseif turtle.status == "paused" then
-                statusColor = colors.paused
+                statusColor = colorScheme.paused
             elseif turtle.status == "offline" then
-                statusColor = colors.error
+                statusColor = colorScheme.error
             elseif turtle.status == "returning" then
-                statusColor = colors.warning
+                statusColor = colorScheme.warning
             end
             
             -- Highlight selected
@@ -133,7 +133,7 @@ local function drawTurtleList()
                 term.setBackgroundColor(colors.gray)
             end
             
-            term.setTextColor(colors.white)
+            term.setTextColor(colorScheme.text)
             
             -- Format line
             local label = turtle.label or ("Turtle-" .. id)
@@ -157,12 +157,12 @@ local function drawTurtleList()
             term.write(label .. " ")
             term.setTextColor(statusColor)
             term.write(status .. " ")
-            term.setTextColor(colors.white)
+            term.setTextColor(colorScheme.text)
             term.write(fuelStr .. " ")
             term.write(invStr .. "  ")
             term.write(posStr)
             
-            term.setBackgroundColor(colors.background)
+            term.setBackgroundColor(colorScheme.background)
         end
     end
 end
@@ -173,14 +173,14 @@ local function drawControls()
     
     -- Draw control panel
     term.setCursorPos(1, controlY)
-    term.setBackgroundColor(colors.background)
-    term.setTextColor(colors.lightGray)
+    term.setBackgroundColor(colorScheme.background)
+    term.setTextColor(colorScheme.idle)
     term.clearLine()
     term.write(string.rep("-", w))
     
     term.setCursorPos(1, controlY + 1)
     term.clearLine()
-    term.setTextColor(colors.white)
+    term.setTextColor(colorScheme.text)
     
     if selectedTurtle then
         term.write("[P]ause [R]esume [H]ome [S]hutdown")
@@ -208,14 +208,14 @@ local function sendCommand(cmd, targetID)
     local success, msg, ack = protocol.sendWithRetry(cmd, {}, targetID, true)
     
     if success then
-        term.setTextColor(colors.active)
+        term.setTextColor(colorScheme.active)
         print("Command acknowledged!")
-        term.setTextColor(colors.white)
+        term.setTextColor(colorScheme.text)
         sleep(1)
     else
-        term.setTextColor(colors.error)
+        term.setTextColor(colorScheme.error)
         print("Command failed: No ACK")
-        term.setTextColor(colors.white)
+        term.setTextColor(colorScheme.text)
         sleep(2)
     end
 end
@@ -336,7 +336,7 @@ local function handleInput()
         elseif key == keys.s then
             -- Confirm shutdown
             term.setCursorPos(1, 1)
-            term.setTextColor(colors.error)
+            term.setTextColor(colorScheme.error)
             term.write("Shutdown turtle " .. selectedTurtle .. "? (Y/N)")
             
             local confirm = os.pullEvent("char")
@@ -409,9 +409,9 @@ local function main()
     
     if not success then
         clearScreen()
-        term.setTextColor(colors.error)
+        term.setTextColor(colorScheme.error)
         print("ERROR: " .. tostring(err))
-        term.setTextColor(colors.white)
+        term.setTextColor(colorScheme.text)
     end
     
     -- Cleanup
