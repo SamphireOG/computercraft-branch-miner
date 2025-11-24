@@ -250,37 +250,43 @@ end
 
 local function configurePocketComputer()
     -- Pocket computers create projects locally
-    print("=== Project Configuration ===")
+    term.clear()
+    term.setCursorPos(1, 1)
+    
+    print("Projects")
+    print("")
+    print("0. New Project")
     print("")
     
     -- Check for existing projects
     local projects = listProjects()
     
-    print("Setup mode:")
-    print("1. Create new project")
-    print("2. Manage existing project")
-    print("")
+    -- Load project server to get turtle counts
+    local server = require("project-server")
+    server.loadProjects()
+    server.loadAssignments()
     
-    if #projects > 0 then
-        print("Existing projects:")
-        for i, proj in ipairs(projects) do
-            print("  - " .. proj)
-        end
-        print("")
+    -- Show existing projects with turtle counts
+    for i, proj in ipairs(projects) do
+        local turtleCount = server.getTurtleCount(proj)
+        print(i .. ". " .. proj .. " (" .. turtleCount .. " Turtles)")
     end
     
-    print("Enter choice (1 or 2):")
+    print("")
+    print("Select Option:")
     local choice = read()
     
     local projectName
     local projectConfig
     
-    if choice == "1" then
+    if choice == "0" then
         -- Create new project
+        term.clear()
+        term.setCursorPos(1, 1)
+        
+        print("New Project")
         print("")
-        print("=== New Project Setup ===")
-        print("")
-        print("Enter project name:")
+        print("Project name:")
         projectName = read()
         
         if projectName == "" then
@@ -347,28 +353,16 @@ local function configurePocketComputer()
         print("Turtles can now discover and join this project!")
         
     else
-        -- Manage existing project
-        if #projects == 0 then
-            print("No projects found!")
-            print("Create a project first.")
-            return false
-        end
+        -- Load existing project
+        local projectNum = tonumber(choice)
         
-        print("")
-        print("Select project:")
-        for i, projName in ipairs(projects) do
-            print(i .. ". " .. projName)
-        end
-        print("")
-        print("Enter number:")
-        
-        local choice = tonumber(read())
-        if not choice or choice < 1 or choice > #projects then
+        if not projectNum or projectNum < 1 or projectNum > #projects then
+            print("")
             print("Invalid choice!")
             return false
         end
         
-        projectName = projects[choice]
+        projectName = projects[projectNum]
         projectConfig = loadProjectConfig(projectName)
         
         if not projectConfig then
