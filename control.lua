@@ -557,9 +557,9 @@ local function init()
     end
     
     clearScreen()
-    print("================================")
-    print("   BRANCH MINER CONTROLLER")
-    print("================================")
+    print("------------------------")
+    print(" BRANCH MINER CONTROL")
+    print("------------------------")
     print("")
     
     -- Initialize project server (silent)
@@ -610,16 +610,18 @@ local function init()
     
     -- Show inactive projects
     if #projectsWithoutTurtles > 0 then
-        print("INACTIVE (need turtles):")
+        print("INACTIVE:")
         for _, proj in ipairs(projectsWithoutTurtles) do
-            print(string.format(" %d. %s", proj.index, proj.name))
+            print(string.format(" %d. %s (no turtles)", proj.index, proj.name))
         end
         print("")
     end
     
     if #selectableProjects == 0 then
         print("No active projects!")
-        print("Run installer on a turtle to get started.")
+        print("")
+        print("Add turtles to get")
+        print("started.")
         return false
     end
     
@@ -638,7 +640,9 @@ local function init()
     
     if not isValid then
         print("")
-        print("Invalid! That project has no turtles.")
+        print("Invalid choice!")
+        print("No turtles in that")
+        print("project.")
         sleep(2)
         return false
     end
