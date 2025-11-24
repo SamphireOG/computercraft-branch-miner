@@ -89,36 +89,15 @@ local function getProjectFilename(projectName)
     return "project_" .. projectName .. ".cfg"
 end
 
-local function getNextAvailableChannel()
-    -- Start at channel 100 to avoid conflicts with other systems
-    local baseChannel = 100
-    local projects = listProjects()
-    
-    if #projects == 0 then
-        return baseChannel
-    end
-    
-    -- Find highest used channel
-    local maxChannel = baseChannel - 1
-    for _, projName in ipairs(projects) do
-        local config = loadProjectConfig(projName)
-        if config and config.channel and config.channel > maxChannel then
-            maxChannel = config.channel
+local function listProjects()
+    local projects = {}
+    for _, file in ipairs(fs.list("/")) do
+        if file:match("^project_(.+)%.cfg$") then
+            local name = file:match("^project_(.+)%.cfg$")
+            table.insert(projects, name)
         end
     end
-    
-    return maxChannel + 1
-end
-
-local function saveProjectConfig(projectName, config)
-    local filename = getProjectFilename(projectName)
-    local file = fs.open(filename, "w")
-    if file then
-        file.write(textutils.serialize(config))
-        file.close()
-        return true
-    end
-    return false
+    return projects
 end
 
 local function loadProjectConfig(projectName)
@@ -138,15 +117,36 @@ local function loadProjectConfig(projectName)
     return textutils.unserialize(content)
 end
 
-local function listProjects()
-    local projects = {}
-    for _, file in ipairs(fs.list("/")) do
-        if file:match("^project_(.+)%.cfg$") then
-            local name = file:match("^project_(.+)%.cfg$")
-            table.insert(projects, name)
+local function saveProjectConfig(projectName, config)
+    local filename = getProjectFilename(projectName)
+    local file = fs.open(filename, "w")
+    if file then
+        file.write(textutils.serialize(config))
+        file.close()
+        return true
+    end
+    return false
+end
+
+local function getNextAvailableChannel()
+    -- Start at channel 100 to avoid conflicts with other systems
+    local baseChannel = 100
+    local projects = listProjects()
+    
+    if #projects == 0 then
+        return baseChannel
+    end
+    
+    -- Find highest used channel
+    local maxChannel = baseChannel - 1
+    for _, projName in ipairs(projects) do
+        local config = loadProjectConfig(projName)
+        if config and config.channel and config.channel > maxChannel then
+            maxChannel = config.channel
         end
     end
-    return projects
+    
+    return maxChannel + 1
 end
 
 local function configureSystem(deviceType)
