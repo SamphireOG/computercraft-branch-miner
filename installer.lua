@@ -171,16 +171,19 @@ local function configureSystem()
     print("=== System Configuration ===")
     print("")
     
-    -- Ask for home base coordinates
-    print("Enter home base coordinates:")
-    print("X coordinate (default 0):")
-    local x = tonumber(read()) or 0
+    -- Use relative coordinates - wherever turtle is now becomes (0,0,0)
+    print("IMPORTANT: This turtle's current position")
+    print("will become HOME BASE (0,0,0)")
+    print("")
+    print("Make sure the turtle is where you want")
+    print("it to start mining from!")
+    print("")
+    print("Press Enter to continue...")
+    read()
     
-    print("Y coordinate (default 64):")
-    local y = tonumber(read()) or 64
-    
-    print("Z coordinate (default 0):")
-    local z = tonumber(read()) or 0
+    local x = 0
+    local y = 0
+    local z = 0
     
     print("")
     print("Enter tunnel configuration:")
@@ -190,12 +193,12 @@ local function configureSystem()
     print("Number of layers (default 3):")
     local layers = tonumber(read()) or 3
     
-    print("Starting Y-level (default -59):")
+    print("Starting Y-level relative to here (default -59):")
     local startY = tonumber(read()) or -59
     
     print("")
     print("Configuration:")
-    print("  Home: " .. x .. "," .. y .. "," .. z)
+    print("  Home: Current position (0,0,0 relative)")
     print("  Tunnel length: " .. length)
     print("  Layers: " .. layers)
     print("  Start Y: " .. startY)
