@@ -67,6 +67,185 @@ local function switchProject(projectName)
     return true
 end
 
+local function getNextAvailableChannel()
+    local baseChannel = 100
+    local projects = listProjects()
+    
+    if #projects == 0 then
+        return baseChannel
+    end
+    
+    local maxChannel = baseChannel - 1
+    for _, projName in ipairs(projects) do
+        local cfg = loadProjectConfig(projName)
+        if cfg and cfg.channel and cfg.channel > maxChannel then
+            maxChannel = cfg.channel
+        end
+    end
+    
+    return maxChannel + 1
+end
+
+local function saveProjectConfig(projectName, projectConfig)
+    local filename = getProjectFilename(projectName)
+    local file = fs.open(filename, "w")
+    if file then
+        file.write(textutils.serialize(projectConfig))
+        file.close()
+        return true
+    end
+    return false
+end
+
+local function createNewProject()
+    clearScreen()
+    print("------------------------")
+    print(" CREATE NEW PROJECT")
+    print("------------------------")
+    print("")
+    
+    print("Project name:")
+    local projectName = read()
+    
+    if projectName == "" then
+        print("")
+        print("Invalid name!")
+        sleep(2)
+        return false
+    end
+    
+    -- Check if exists
+    if loadProjectConfig(projectName) then
+        print("")
+        print("Project already exists!")
+        sleep(2)
+        return false
+    end
+    
+    print("")
+    print("Tunnel length [64]:")
+    local length = tonumber(read()) or 64
+    
+    print("Layers [3]:")
+    local layers = tonumber(read()) or 3
+    
+    print("Start Y [-59]:")
+    local startY = tonumber(read()) or -59
+    
+    local channel = getNextAvailableChannel()
+    
+    local projectConfig = {
+        name = projectName,
+        channel = channel,
+        tunnelLength = length,
+        numLayers = layers,
+        startY = startY,
+        homeSet = false,
+        createdAt = os.epoch("utc")
+    }
+    
+    if saveProjectConfig(projectName, projectConfig) then
+        print("")
+        print("Created!")
+        print("Channel: " .. channel)
+        sleep(2)
+        
+        -- Register with project server
+        projectServer.createProject(projectName, projectConfig)
+        return true
+    else
+        print("")
+        print("Save failed!")
+        sleep(2)
+        return false
+    end
+end
+
+local function deleteProject()
+    clearScreen()
+    print("------------------------")
+    print(" DELETE PROJECT")
+    print("------------------------")
+    print("")
+    
+    local projects = listProjects()
+    if #projects == 0 then
+        print("No projects to delete!")
+        sleep(2)
+        return false
+    end
+    
+    print("Projects:")
+    for i, proj in ipairs(projects) do
+        print(string.format(" %d. %s", i, proj))
+    end
+    print("")
+    
+    print("Delete which? (0=cancel)")
+    local choice = tonumber(read())
+    
+    if not choice or choice == 0 then
+        return false
+    end
+    
+    if choice < 1 or choice > #projects then
+        print("")
+        print("Invalid choice!")
+        sleep(2)
+        return false
+    end
+    
+    local projectName = projects[choice]
+    
+    print("")
+    print("Delete '" .. projectName .. "'?")
+    print("Type YES to confirm:")
+    local confirm = read()
+    
+    if confirm ~= "YES" then
+        print("")
+        print("Cancelled.")
+        sleep(1)
+        return false
+    end
+    
+    -- Delete project file
+    local filename = getProjectFilename(projectName)
+    if fs.exists(filename) then
+        fs.delete(filename)
+    end
+    
+    print("")
+    print("Project deleted!")
+    sleep(2)
+    return true
+end
+
+local function projectManagementMenu()
+    while true do
+        clearScreen()
+        print("------------------------")
+        print(" PROJECT MANAGEMENT")
+        print("------------------------")
+        print("")
+        print("1. Create project")
+        print("2. Delete project")
+        print("3. Back")
+        print("")
+        print("Choice:")
+        
+        local choice = read()
+        
+        if choice == "1" then
+            createNewProject()
+        elseif choice == "2" then
+            deleteProject()
+        elseif choice == "3" then
+            return
+        end
+    end
+end
+
 -- ========== GUI STATE ==========
 
 local turtles = {}  -- Tracked turtles {id -> data}
@@ -571,8 +750,25 @@ local function init()
     if #availableProjects == 0 then
         print("No projects found!")
         print("")
-        print("Run installer to create a project.")
-        return false
+        print("1. Create new project")
+        print("2. Exit")
+        print("")
+        print("Choice:")
+        local choice = read()
+        
+        if choice == "1" then
+            if createNewProject() then
+                -- Refresh and continue
+                availableProjects = listProjects()
+                if #availableProjects == 0 then
+                    return false
+                end
+            else
+                return false
+            end
+        else
+            return false
+        end
     end
     
     -- Build project list with turtle counts
@@ -620,14 +816,32 @@ local function init()
     if #selectableProjects == 0 then
         print("No active projects!")
         print("")
-        print("Add turtles to get")
-        print("started.")
-        return false
+        print("1. Wait for turtles")
+        print("2. Manage projects")
+        print("3. Exit")
+        print("")
+        print("Choice:")
+        local choice = read()
+        
+        if choice == "2" then
+            projectManagementMenu()
+            return false -- Return to restart
+        else
+            return false
+        end
     end
     
     -- Select project
-    print("Select project: ")
-    local choice = tonumber(read())
+    print("Select project")
+    print("(or M for menu): ")
+    local input = read()
+    
+    if input:lower() == "m" then
+        projectManagementMenu()
+        return false -- Return to restart
+    end
+    
+    local choice = tonumber(input)
     
     -- Validate selection
     local isValid = false
