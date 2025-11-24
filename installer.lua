@@ -27,7 +27,11 @@ local FILES = {
 local function downloadFile(url, filename)
     print("Downloading " .. filename .. "...")
     
-    local response = http.get(url)
+    -- Add cache-busting parameter to force fresh download
+    local cacheBuster = "?t=" .. os.epoch("utc")
+    local fullUrl = url .. cacheBuster
+    
+    local response = http.get(fullUrl)
     if not response then
         return false, "Download failed"
     end

@@ -23,7 +23,9 @@ end
 print("")
 print("Downloading latest installer...")
 
-local response = http.get(GITHUB_URL)
+-- Add cache-busting to force fresh download
+local cacheBuster = "?t=" .. os.epoch("utc")
+local response = http.get(GITHUB_URL .. cacheBuster)
 if not response then
     print("ERROR: Could not download installer")
     print("Check your internet connection and GitHub URL")
