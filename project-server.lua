@@ -80,6 +80,18 @@ function server.saveAssignments()
     return false
 end
 
+function server.createProject(projectName, projectConfig)
+    -- Register a new project with the server
+    server.projects[projectName] = projectConfig
+    
+    -- Initialize assignments table for this project
+    if not server.assignments[projectName] then
+        server.assignments[projectName] = {}
+    end
+    
+    return true
+end
+
 function server.getTurtleCount(projectName)
     if not server.assignments[projectName] then
         return 0
