@@ -99,6 +99,26 @@ local function saveProjectConfig(projectName, projectConfig)
     return false
 end
 
+-- ========== COLORS & SCREEN HELPERS ==========
+
+local colorScheme = {
+    header = colors.blue,
+    active = colors.lime,
+    warning = colors.yellow,
+    error = colors.red,
+    idle = colors.lightGray,
+    paused = colors.orange,
+    background = colors.black,
+    text = colors.white
+}
+
+local function clearScreen()
+    term.setBackgroundColor(colorScheme.background)
+    term.setTextColor(colorScheme.text)
+    term.clear()
+    term.setCursorPos(1, 1)
+end
+
 local function createNewProject()
     clearScreen()
     print("------------------------")
@@ -257,27 +277,7 @@ local running = true
 local lastUpdate = 0
 local showProjectSelector = false
 
--- ========== COLORS ==========
-
-local colorScheme = {
-    header = colors.blue,
-    active = colors.lime,
-    warning = colors.yellow,
-    error = colors.red,
-    idle = colors.lightGray,
-    paused = colors.orange,
-    background = colors.black,
-    text = colors.white
-}
-
--- ========== SCREEN HELPERS ==========
-
-local function clearScreen()
-    term.setBackgroundColor(colorScheme.background)
-    term.setTextColor(colorScheme.text)
-    term.clear()
-    term.setCursorPos(1, 1)
-end
+-- ========== SCREEN HELPERS (continued) ==========
 
 local function drawBar(percent, maxWidth)
     local filled = math.floor((percent / 100) * maxWidth)
