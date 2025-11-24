@@ -248,147 +248,6 @@ local function configureTurtle()
     return true, result
 end
 
-local function configurePocketComputer()
-    -- Pocket computers create projects locally
-    term.clear()
-    term.setCursorPos(1, 1)
-    
-    print("Projects")
-    print("")
-    print("0. New Project")
-    print("")
-    
-    -- Check for existing projects
-    local projects = listProjects()
-    
-    -- Load project server to get turtle counts
-    local server = require("project-server")
-    server.loadProjects()
-    server.loadAssignments()
-    
-    -- Show existing projects with turtle counts
-    for i, proj in ipairs(projects) do
-        local turtleCount = server.getTurtleCount(proj)
-        print(i .. ". " .. proj .. " (" .. turtleCount .. " Turtles)")
-    end
-    
-    print("")
-    print("Select Option:")
-    local choice = read()
-    
-    local projectName
-    local projectConfig
-    
-    if choice == "0" then
-        -- Create new project
-        term.clear()
-        term.setCursorPos(1, 1)
-        
-        print("New Project")
-        print("")
-        print("Project name:")
-        projectName = read()
-        
-        if projectName == "" then
-            print("Invalid project name")
-            return false
-        end
-        
-        print("")
-        print("Enter tunnel configuration:")
-        print("Tunnel length (default 64):")
-        local length = tonumber(read()) or 64
-        
-        print("Number of layers (default 3):")
-        local layers = tonumber(read()) or 3
-        
-        print("Starting Y-level relative to base (default -59):")
-        local startY = tonumber(read()) or -59
-        
-        -- Auto-assign unique channel
-        local channel = getNextAvailableChannel()
-        
-        print("")
-        print("Communication channel:")
-        print("Auto-assigned: " .. channel)
-        print("Use custom? (Enter number or press Enter to accept):")
-        local customChannel = tonumber(read())
-        if customChannel and customChannel >= 1 and customChannel <= 65535 then
-            channel = customChannel
-        end
-        
-        projectConfig = {
-            name = projectName,
-            channel = channel,
-            tunnelLength = length,
-            numLayers = layers,
-            startY = startY,
-            createdAt = os.epoch("utc")
-        }
-        
-        print("")
-        print("Project Configuration:")
-        print("  Name: " .. projectName)
-        print("  Channel: " .. channel)
-        print("  Tunnel length: " .. length)
-        print("  Layers: " .. layers)
-        print("  Start Y: " .. startY)
-        print("")
-        print("Save project? (Y/N)")
-        
-        local confirm = read()
-        if confirm:lower() ~= "y" then
-            print("Project creation cancelled")
-            return false
-        end
-        
-        if not saveProjectConfig(projectName, projectConfig) then
-            print("ERROR: Could not save project")
-            return false
-        end
-        
-        print("Project '" .. projectName .. "' created!")
-        print("")
-        print("Project will be broadcast on discovery channel.")
-        print("Turtles can now discover and join this project!")
-        
-    else
-        -- Load existing project
-        local projectNum = tonumber(choice)
-        
-        if not projectNum or projectNum < 1 or projectNum > #projects then
-            print("")
-            print("Invalid choice!")
-            return false
-        end
-        
-        projectName = projects[projectNum]
-        projectConfig = loadProjectConfig(projectName)
-        
-        if not projectConfig then
-            print("ERROR: Could not load project!")
-            return false
-        end
-        
-        print("")
-        print("Loaded project: " .. projectName)
-        print("  Channel: " .. (projectConfig.channel or 42))
-        print("  Tunnel length: " .. projectConfig.tunnelLength)
-        print("  Layers: " .. projectConfig.numLayers)
-        print("  Start Y: " .. projectConfig.startY)
-    end
-    
-    return true, projectConfig
-end
-
-local function configureSystem(deviceType)
-    -- Wrapper for compatibility
-    if deviceType == "turtle" then
-        return configureTurtle()
-    else
-        return configurePocketComputer()
-    end
-end
 
 -- ========== STARTUP FILE ==========
 
@@ -542,17 +401,13 @@ local function main()
     end
     
     -- Project-based configuration
-    local configSuccess, result
-    
     if deviceType == "turtle" then
-        configSuccess, result = configureTurtle()
-    else
-        configSuccess, result = configurePocketComputer()
-    end
-    
-    if not configSuccess then
-        print("Configuration failed!")
-        return
+        local configSuccess, result = configureTurtle()
+        
+        if not configSuccess then
+            print("Configuration failed!")
+            return
+        end
     end
     
     -- Create startup file
@@ -574,20 +429,34 @@ local function main()
         print("  - Chest below: Cobblestone storage")
         print("  - Chest in front: Ore/item storage")
         print("  - Chest above: Fuel storage")
-    else
-        print("To start controller:")
-        print("  Run: control.lua")
         print("")
-        print("Controls:")
-        print("  [A] Pause all turtles")
-        print("  [Z] Resume all turtles")
-        print("  [F] Refresh status")
-        print("  [Q] Quit")
+        print("Press any key to exit installer...")
+        os.pullEvent("key")
+    else
+        print("Launch controller now? (Y/N)")
+        local launch = read()
+        
+        if launch:lower() == "y" then
+            print("")
+            print("Starting controller...")
+            sleep(1)
+            shell.run("control.lua")
+        else
+            print("")
+            print("To start controller later:")
+            print("  Run: control.lua")
+            print("")
+            print("Controls:")
+            print("  [P] Switch projects")
+            print("  [A] Pause all turtles")
+            print("  [Z] Resume all turtles")
+            print("  [F] Refresh status")
+            print("  [Q] Quit")
+            print("")
+            print("Press any key to exit installer...")
+            os.pullEvent("key")
+        end
     end
-    
-    print("")
-    print("Press any key to exit installer...")
-    os.pullEvent("key")
 end
 
 -- Run installer
