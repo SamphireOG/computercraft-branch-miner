@@ -509,44 +509,10 @@ local function updateTurtleData(msg)
     end
 end
 
-local function checkForMessages()
-    -- Non-blocking check for messages
-    local hasEvent = os.pullEvent("modem_message")
-    
-    if hasEvent then
-        local event, side, channel, replyChannel, message, distance = hasEvent, side, channel, replyChannel, message, distance
-        
-        if channel == config.MODEM_CHANNEL and type(message) == "table" then
-            if message.version == config.PROTOCOL_VERSION then
-                updateTurtleData(message)
-            end
-        end
-    end
-end
-
 local function requestAllStatus()
     protocol.send(protocol.MSG_TYPES.CMD_STATUS_ALL, {})
     print("Requesting status from all turtles...")
     sleep(1)
-end
-
-local function cleanupOffline()
-    local now = os.epoch("utc")
-    local removed = 0
-    
-    for id, turtle in pairs(turtles) do
-        local ageSeconds = (now - turtle.lastSeen) / 1000
-        
-        if ageSeconds > config.OFFLINE_THRESHOLD * 2 then
-            turtles[id] = nil
-            removed = removed + 1
-        end
-    end
-    
-    if removed > 0 then
-        print("Removed " .. removed .. " offline turtles")
-        sleep(1)
-    end
 end
 
 -- ========== PROJECT SELECTOR ==========
