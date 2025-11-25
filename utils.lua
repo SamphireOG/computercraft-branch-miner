@@ -361,8 +361,8 @@ function utils.ensureFuel(minLevel)
         return true
     end
     
-    -- Try to refuel from inventory
-    for slot = 1, 16 do
+    -- Try to refuel from inventory (slots 1-15 first, slot 16 is emergency reserve)
+    for slot = 1, 15 do
         turtle.select(slot)
         local item = turtle.getItemDetail()
         
@@ -373,6 +373,17 @@ function utils.ensureFuel(minLevel)
             if turtle.getFuelLevel() >= minLevel then
                 return true
             end
+        end
+    end
+    
+    -- Last resort: use fuel from slot 16 (emergency reserve)
+    if turtle.getFuelLevel() < minLevel then
+        turtle.select(16)
+        local item = turtle.getItemDetail()
+        
+        if item and config.getFuelValue(item.name) > 0 then
+            local needed = math.ceil((minLevel - turtle.getFuelLevel()) / config.getFuelValue(item.name))
+            turtle.refuel(math.min(needed, item.count))
         end
     end
     
@@ -491,27 +502,69 @@ function utils.depositInventory(keepBuildingBlocks)
 end
 
 function utils.refuelFromChest()
-    -- Try to take fuel from chest above
-    turtle.select(16)  -- Use last slot for fuel
-    local taken = turtle.suckUp(64)
+    -- Take fuel items from chest above and store in slot 16
+    turtle.select(16)
     
-    if taken then
-        turtle.refuel()
+    -- First, refuel if we're critically low (below minimum)
+    local currentFuel = turtle.getFuelLevel()
+    if currentFuel < config.MIN_FUEL then
+        -- Refuel enough to reach safe level
+        local fuelNeeded = config.MIN_FUEL - currentFuel + config.FUEL_BUFFER
+        local itemsInSlot = turtle.getItemCount(16)
+        
+        if itemsInSlot > 0 then
+            -- Use existing fuel items first
+            local itemDetail = turtle.getItemDetail(16)
+            if itemDetail then
+                local fuelValue = config.getFuelValue(itemDetail.name)
+                if fuelValue > 0 then
+                    local itemsToUse = math.ceil(fuelNeeded / fuelValue)
+                    itemsToUse = math.min(itemsToUse, itemsInSlot)
+                    turtle.refuel(itemsToUse)
+                end
+            end
+        end
+    end
+    
+    -- Then, take MORE fuel items from chest to keep slot 16 stocked
+    -- Only take if slot 16 has less than 32 items
+    local currentCount = turtle.getItemCount(16)
+    if currentCount < 32 then
+        local spaceLeft = 64 - currentCount
+        turtle.suckUp(spaceLeft)
     end
     
     return turtle.getFuelLevel()
 end
 
 function utils.restockBuildingBlocks()
-    -- Try to get building blocks from chest below
-    local slot = utils.findBuildingBlock() or 1
-    turtle.select(slot)
+    -- Restock building blocks in slot 1 (target: 32-64 items)
+    turtle.select(1)
     
-    local before = turtle.getItemCount(slot)
-    turtle.suckDown(64)
-    local after = turtle.getItemCount(slot)
+    local currentCount = turtle.getItemCount(1)
+    local targetMin = 32
+    local targetMax = 64
     
-    return after - before
+    -- If we already have enough, we're good
+    if currentCount >= targetMin then
+        return 0
+    end
+    
+    -- Take from chest below to reach target range
+    local needed = targetMax - currentCount
+    local before = currentCount
+    turtle.suckDown(needed)
+    local after = turtle.getItemCount(1)
+    
+    local restocked = after - before
+    
+    -- Verify we got at least the minimum
+    if after < targetMin then
+        -- Not enough cobble in chest!
+        return restocked
+    end
+    
+    return restocked
 end
 
 -- ========== PLACING BLOCKS ==========

@@ -72,12 +72,15 @@ local function switchProject(projectName)
     
     -- Initialize coordinator for work distribution (with error handling)
     local success, err = pcall(function()
-        coordinator.init()
+        -- IMPORTANT: Reset coordinator to clear stale assignments from previous runs
+        -- This ensures tunnel numbering starts fresh (tunnel 1, 2, 3...)
+        coordinator.reset()
     end)
     
     if success then
         local workCount = #coordinator.workQueue or 0
         print("Coordinator initialized with " .. workCount .. " tunnels")
+        print("(All assignments reset - starting fresh)")
         print("(Running on this pocket PC)")
         sleep(1)
     else

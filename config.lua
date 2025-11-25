@@ -58,7 +58,7 @@ local config = {
     
     -- Inventory management
     MIN_FREE_SLOTS = 2,          -- Return to base if free slots below this
-    COBBLE_KEEP_AMOUNT = 32,     -- Building blocks to keep in inventory
+    COBBLE_KEEP_AMOUNT = 32,     -- Minimum building blocks to keep in slot 1 (restocks to 64)
     
     -- Error handling
     MAX_RETRIES = 5,             -- Maximum movement retry attempts

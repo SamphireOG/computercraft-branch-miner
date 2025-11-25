@@ -368,5 +368,28 @@ function coordinator.load()
     return true
 end
 
+function coordinator.reset()
+    -- Reset coordinator to fresh state (clears all assignments)
+    print("Resetting coordinator state...")
+    
+    -- Delete saved state file if it exists
+    if fs.exists("coordinator_state.dat") then
+        fs.delete("coordinator_state.dat")
+    end
+    
+    -- Clear all state
+    coordinator.workQueue = {}
+    coordinator.activeTurtles = {}
+    coordinator.assignedWork = {}
+    coordinator.completedWork = {}
+    coordinator.lastHeartbeats = {}
+    
+    -- Regenerate fresh work queue
+    coordinator.generateWorkQueue()
+    
+    print("✓ Coordinator reset - " .. #coordinator.workQueue .. " fresh tunnels available")
+    return true
+end
+
 return coordinator
 

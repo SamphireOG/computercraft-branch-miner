@@ -292,11 +292,15 @@ local function manageResupply()
     local deposited = utils.depositInventory(true)
     print("Deposited " .. deposited .. " items")
     
-    -- Refuel
-    print("Refueling...")
+    -- Restock fuel items in slot 16
+    print("Restocking fuel items...")
     local fuelBefore = turtle.getFuelLevel()
+    turtle.select(16)
+    local fuelItemsBefore = turtle.getItemCount(16)
     utils.refuelFromChest()
-    print("Fuel: " .. fuelBefore .. " -> " .. turtle.getFuelLevel())
+    local fuelItemsAfter = turtle.getItemCount(16)
+    print("Fuel Level: " .. fuelBefore .. " -> " .. turtle.getFuelLevel())
+    print("Fuel Items (slot 16): " .. fuelItemsBefore .. " -> " .. fuelItemsAfter)
     
     -- Restock building blocks
     print("Restocking building blocks...")
@@ -319,11 +323,11 @@ local function checkInventoryReady()
     
     print("Pre-flight check...")
     
-    -- Check slot 1 for cobblestone (building blocks)
+    -- Check slot 1 for cobblestone (building blocks) - need 32-64 items
     turtle.select(1)
     local slot1 = turtle.getItemDetail()
-    if not slot1 or slot1.count < 8 then
-        return false, "Need cobblestone in slot 1"
+    if not slot1 or slot1.count < 32 then
+        return false, "Need 32+ cobblestone in slot 1 (currently: " .. (slot1 and slot1.count or 0) .. ")"
     end
     
     -- Check slot 16 for fuel
@@ -354,7 +358,7 @@ local function checkInventoryReady()
     
     print("Pre-flight check PASSED")
     print("  Fuel: " .. fuelLevel)
-    print("  Cobble: " .. slot1.count .. " blocks")
+    print("  Cobble (slot 1): " .. slot1.count .. " blocks")
     print("  Free slots: " .. (14 - usedSlots) .. "/14")
     
     return true, "Ready"
