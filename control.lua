@@ -1129,22 +1129,68 @@ local function mainLoop()
     local lastOfflineCheck = 0
     
     while running do
-        -- Update display
-        local now = os.clock()
-        if now - lastUpdate > 2 then
-            drawScreen()
-            lastUpdate = now
+        -- Wrap everything in error handler
+        local success, err = pcall(function()
+            -- Update display
+            local now = os.clock()
+            if now - lastUpdate > 2 then
+                drawScreen()
+                lastUpdate = now
+            end
+        end)
+        
+        if not success then
+            -- Display error
+            term.setBackgroundColor(colors.black)
+            term.clear()
+            term.setCursorPos(1, 1)
+            term.setBackgroundColor(colors.red)
+            term.setTextColor(colors.white)
+            term.clearLine()
+            print(" ERROR IN MAIN LOOP - DRAW")
+            term.setBackgroundColor(colors.black)
+            term.setTextColor(colors.orange)
+            print("")
+            print(tostring(err))
+            print("")
+            term.setTextColor(colors.gray)
+            print("Press any key to continue...")
+            os.pullEvent("key")
         end
         
         -- Check for offline turtles every 10 seconds
-        local nowEpoch = os.epoch("utc")
-        if nowEpoch - lastOfflineCheck > 10000 then
-            checkOfflineTurtles()
-            lastOfflineCheck = nowEpoch
+        success, err = pcall(function()
+            local nowEpoch = os.epoch("utc")
+            if nowEpoch - lastOfflineCheck > 10000 then
+                checkOfflineTurtles()
+                lastOfflineCheck = nowEpoch
+            end
+        end)
+        
+        if not success then
+            -- Display error
+            term.setBackgroundColor(colors.black)
+            term.clear()
+            term.setCursorPos(1, 1)
+            term.setBackgroundColor(colors.red)
+            term.setTextColor(colors.white)
+            term.clearLine()
+            print(" ERROR IN OFFLINE CHECK")
+            term.setBackgroundColor(colors.black)
+            term.setTextColor(colors.orange)
+            print("")
+            print(tostring(err))
+            print("")
+            term.setTextColor(colors.gray)
+            print("Press any key to continue...")
+            os.pullEvent("key")
         end
         
         -- Pull any event without filtering
         local event = {os.pullEvent()}
+        
+        -- Wrap event handling in error handler
+        success, err = pcall(function()
         
         if event[1] == "key" or event[1] == "char" then
             -- Handle keyboard input
@@ -1232,6 +1278,29 @@ local function mainLoop()
                     }
                 end
             end
+        end
+        end) -- End of event handling pcall
+        
+        if not success then
+            -- Display error
+            term.setBackgroundColor(colors.black)
+            term.clear()
+            term.setCursorPos(1, 1)
+            term.setBackgroundColor(colors.red)
+            term.setTextColor(colors.white)
+            term.clearLine()
+            print(" ERROR IN EVENT HANDLING")
+            term.setBackgroundColor(colors.black)
+            term.setTextColor(colors.orange)
+            print("")
+            print("Event type: " .. tostring(event[1]))
+            print("")
+            print("Error:")
+            print(tostring(err))
+            print("")
+            term.setTextColor(colors.gray)
+            print("Press any key to continue...")
+            os.pullEvent("key")
         end
     end
 end

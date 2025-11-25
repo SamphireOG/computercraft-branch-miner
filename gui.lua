@@ -42,7 +42,33 @@ function gui.handleClick(x, y)
     for _, button in pairs(gui.buttons) do
         if gui.isPointInButton(button, x, y) then
             if button.callback then
-                button.callback()
+                -- Wrap callback in error handler
+                local success, err = pcall(button.callback)
+                if not success then
+                    -- Display error clearly
+                    term.setBackgroundColor(colors.black)
+                    term.clear()
+                    term.setCursorPos(1, 1)
+                    term.setBackgroundColor(colors.red)
+                    term.setTextColor(colors.white)
+                    term.clearLine()
+                    print(" ERROR IN BUTTON: " .. button.id)
+                    term.setBackgroundColor(colors.black)
+                    term.setTextColor(colors.red)
+                    print("")
+                    print("Button ID: " .. tostring(button.id))
+                    print("Text: " .. tostring(button.text))
+                    print("")
+                    term.setTextColor(colors.white)
+                    print("Error:")
+                    term.setTextColor(colors.orange)
+                    print(tostring(err))
+                    print("")
+                    term.setTextColor(colors.gray)
+                    print("Press any key to continue...")
+                    os.pullEvent("key")
+                    return button.id
+                end
             end
             return button.id
         end
