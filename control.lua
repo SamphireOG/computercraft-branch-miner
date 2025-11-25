@@ -617,7 +617,7 @@ end
 local function drawTurtleList()
     local w, h = term.getSize()
     local listStart = 5  -- Changed from 4 to 5 to make room for coordinator badge
-    local listHeight = h - 9  -- Leave room for header, coordinator badge, and 3-row controls
+    local listHeight = h - 10  -- Leave more room for buttons (was -9)
     
     -- List header with fancy colors and icons
     term.setCursorPos(1, listStart - 1)
@@ -720,7 +720,14 @@ end
 
 local function drawControls()
     local w, h = term.getSize()
-    local controlY = h - 4  -- Changed to -4 for 3 rows
+    local controlY = h - 5  -- Changed to -5 to move buttons up more
+    
+    -- Clear 2 lines before separator to catch any print() statements
+    term.setBackgroundColor(colors.black)
+    for i = 1, 2 do
+        term.setCursorPos(1, controlY - i)
+        term.clearLine()
+    end
     
     -- Draw control panel separator
     term.setCursorPos(1, controlY)
