@@ -561,23 +561,18 @@ local function drawHeader()
     term.setTextColor(colors.white)
     term.clearLine()
     
-    -- Draw title centered, ensuring it fits
-    local title = " \7 BRANCH MINER CONTROL \7 "
-    local titleStart = math.max(1, math.floor((w - #title - 1) / 2))  -- Center but leave room for button
-    term.setCursorPos(titleStart, 1)
-    -- Only write as much as fits (w-1 to leave room for # button)
-    local maxLen = w - titleStart - 1
-    if #title > maxLen then
-        term.write(title:sub(1, maxLen))
-    else
-        term.write(title)
-    end
-    
     -- Settings button in top right corner (single red square with # icon)
     term.setCursorPos(w, 1)
     term.setBackgroundColor(colors.red)
     term.setTextColor(colors.white)
     term.write("#")
+    
+    -- Draw title right-aligned before the # button
+    term.setBackgroundColor(colors.blue)
+    term.setTextColor(colors.white)
+    local title = " \7 BRANCH MINER CONTROL \7 "
+    term.setCursorPos(w - #title, 1)
+    term.write(title)
     
     -- Reset colors
     term.setBackgroundColor(colors.blue)
