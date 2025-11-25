@@ -1344,6 +1344,39 @@ local function mainLoop()
                         lastSeen = os.epoch("utc"),
                         currentTask = data.currentTask or "Idle"
                     }
+                    
+                    -- Also update coordinator heartbeat tracking
+                    pcall(function()
+                        coordinator.updateHeartbeat(
+                            turtleID,
+                            data.status,
+                            data.position,
+                            data.fuel and data.fuel.level,
+                            data.inventory,
+                            data.currentTask
+                        )
+                    end)
+                    
+                -- Coordinator-specific messages
+                elseif msgType == protocol.MSG_TYPES.REGISTER then
+                    pcall(function()
+                        coordinator.registerTurtle(turtleID, data.label, data.fuelLevel)
+                    end)
+                    
+                elseif msgType == protocol.MSG_TYPES.CLAIM_TUNNEL then
+                    pcall(function()
+                        local assignment = coordinator.claimTunnel(turtleID)
+                        if assignment then
+                            protocol.send(protocol.MSG_TYPES.TUNNEL_ASSIGNED, {
+                                assignment = assignment
+                            }, turtleID)
+                        end
+                    end)
+                    
+                elseif msgType == protocol.MSG_TYPES.TUNNEL_COMPLETE then
+                    pcall(function()
+                        coordinator.completeTunnel(data.assignmentID, data.blocksMined, data.oresFound)
+                    end)
                 end
             end
         end
@@ -1774,7 +1807,8 @@ local function main()
         sleep(0.5)
     end
     
-    -- Run controller, project server, and coordinator in parallel
+    -- Run controller and project server in parallel
+    -- (Coordinator message handling is integrated into mainLoop)
     local success, err = pcall(function()
         parallel.waitForAny(
             mainLoop,
@@ -1782,50 +1816,6 @@ local function main()
                 -- Project server background loop
                 while running do
                     projectServer.update()
-                end
-            end,
-            function()
-                -- Coordinator message handler loop
-                while running do
-                    local event, side, channel, replyChannel, message, distance = os.pullEvent("modem_message")
-                    
-                    if channel == config.MODEM_CHANNEL and type(message) == "table" then
-                        local msgType = message.type
-                        local data = message.data or {}
-                        local turtleID = message.senderId
-                        
-                        -- Handle coordinator-specific messages (with error protection)
-                        pcall(function()
-                            if msgType == protocol.MSG_TYPES.REGISTER then
-                                coordinator.registerTurtle(turtleID, data.label, data.fuelLevel)
-                                
-                            elseif msgType == protocol.MSG_TYPES.CLAIM_TUNNEL then
-                                local assignment = coordinator.claimTunnel(turtleID)
-                                if assignment then
-                                    -- Send tunnel assignment back to turtle
-                                    protocol.send(protocol.MSG_TYPES.TUNNEL_ASSIGNED, {
-                                        assignment = assignment
-                                    }, turtleID)
-                                end
-                                
-                            elseif msgType == protocol.MSG_TYPES.TUNNEL_COMPLETE then
-                                coordinator.completeTunnel(data.assignmentID, data.blocksMined, data.oresFound)
-                                
-                            elseif msgType == protocol.MSG_TYPES.HEARTBEAT then
-                                -- Update coordinator's heartbeat tracking
-                                coordinator.updateHeartbeat(
-                                    turtleID,
-                                    data.status,
-                                    data.position,
-                                    data.fuel,
-                                    data.inventory,
-                                    data.currentTask
-                                )
-                            end
-                        end)
-                    end
-                    
-                    sleep(0)  -- Yield to prevent blocking
                 end
             end
         )
