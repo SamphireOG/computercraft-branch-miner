@@ -65,6 +65,14 @@ local function switchProject(projectName)
         protocol.modem.open(100)
     end
     
+    -- DEBUG: Verify channel is open
+    if protocol.modem then
+        print("DEBUG: Modem channels open:")
+        for _, ch in ipairs({protocol.modem.isOpen(config.MODEM_CHANNEL), protocol.modem.isOpen(100)}) do
+            print(" - " .. tostring(ch))
+        end
+    end
+    
     -- Clear old turtle data
     turtles = {}
     selectedTurtle = nil
@@ -281,8 +289,6 @@ local scrollOffset = 0
 local running = true
 local lastUpdate = 0
 local showProjectSelector = false
-local lastMessageType = "none"  -- DEBUG: Track last message
-local messageCount = 0  -- DEBUG: Count messages
 
 -- ========== SCREEN HELPERS (continued) ==========
 
@@ -341,19 +347,15 @@ local function drawHeader()
     end
     
     term.write(status)
-    
-    -- DEBUG: Show message info RIGHT HERE
-    term.setTextColor(colors.yellow)
-    term.write(" [Msg:" .. messageCount .. "]")
     term.setTextColor(colorScheme.idle)
-    term.write(" P=projects")
+    term.write(" | Press 'P' for projects")
     term.setTextColor(colorScheme.text)
 end
 
 local function drawTurtleList()
     local w, h = term.getSize()
-    local listStart = 4  -- Back to 4 since debug is inline now
-    local listHeight = h - 7  -- Back to h - 7
+    local listStart = 4
+    local listHeight = h - 7  -- Leave room for header and controls
     
     -- List header
     term.setCursorPos(1, listStart - 1)
@@ -737,16 +739,19 @@ local function checkForMessages()
     -- Check for modem messages from turtles
     local event, side, channel, replyChannel, message, distance = os.pullEvent("modem_message")
     
-    -- DEBUG: Track any message
-    messageCount = messageCount + 1
+    -- DEBUG: Log ALL messages
+    print("MSG: Ch" .. channel .. " (want:" .. config.MODEM_CHANNEL .. ") Type:" .. tostring(type(message)))
     
     if channel == config.MODEM_CHANNEL and type(message) == "table" then
         local msgType = message.type
         local turtleID = message.sender
         local data = message.data or {}
         
-        -- DEBUG: Track message type
-        lastMessageType = tostring(msgType) or "unknown"
+        -- DEBUG: Log received heartbeat
+        print("MATCHED! Type:" .. tostring(msgType) .. " From:" .. tostring(turtleID))
+        if msgType == protocol.MSG_TYPES.HEARTBEAT then
+            print("HEARTBEAT from " .. turtleID .. " status:" .. tostring(data.status))
+        end
         
         if msgType == protocol.MSG_TYPES.HEARTBEAT then
             -- Update turtle status from heartbeat
@@ -917,18 +922,57 @@ local function mainLoop()
             lastOfflineCheck = nowEpoch
         end
         
-        -- Handle events
-        parallel.waitForAny(
-            function()
-                handleInput()
-            end,
-            function()
-                checkForMessages()
-            end,
-            function()
-                sleep(0.1)
+        -- Handle events (using timer to prevent blocking)
+        os.startTimer(0.05)
+        local event = {os.pullEvent()}
+        
+        if event[1] == "key" or event[1] == "mouse_click" or event[1] == "char" then
+            -- Handle input in a separate call to avoid blocking
+            parallel.waitForAny(
+                function()
+                    handleInput()
+                end,
+                function()
+                    sleep(0.1)
+                end
+            )
+        elseif event[1] == "modem_message" then
+            -- Process the message we just received
+            local side, channel, replyChannel, message, distance = event[2], event[3], event[4], event[5], event[6]
+            
+            -- DEBUG: Log ALL messages
+            print("MSG: Ch" .. channel .. " (want:" .. config.MODEM_CHANNEL .. ") Type:" .. tostring(type(message)))
+            
+            if channel == config.MODEM_CHANNEL and type(message) == "table" then
+                local msgType = message.type
+                local turtleID = message.sender
+                local data = message.data or {}
+                
+                -- DEBUG: Log received heartbeat
+                print("MATCHED! Type:" .. tostring(msgType) .. " From:" .. tostring(turtleID))
+                
+                if msgType == protocol.MSG_TYPES.HEARTBEAT then
+                    print("HEARTBEAT from " .. turtleID .. " status:" .. tostring(data.status))
+                    
+                    -- Update turtle status from heartbeat
+                    if not turtles[turtleID] then
+                        turtles[turtleID] = {}
+                    end
+                    
+                    turtles[turtleID] = {
+                        id = turtleID,
+                        label = message.senderLabel or ("Turtle-" .. turtleID),
+                        status = data.status or "idle",
+                        position = data.position or {x = 0, y = 0, z = 0},
+                        fuel = data.fuel and data.fuel.level or 0,
+                        fuelPercent = data.fuel and data.fuel.percent or 0,
+                        inventory = data.inventory and data.inventory.freeSlots or 0,
+                        lastSeen = os.epoch("utc"),
+                        currentTask = data.currentTask or "Idle"
+                    }
+                end
             end
-        )
+        end
     end
 end
 
@@ -1187,7 +1231,16 @@ local function init()
     
     print("")
     print("Loading " .. currentProject.name .. "...")
-    sleep(0.5)
+    print("Listening on channel: " .. config.MODEM_CHANNEL)
+    print("Modem: " .. tostring(protocol.modem ~= nil))
+    
+    -- DEBUG: Check if channel is actually open
+    if protocol.modem then
+        print("Channel " .. config.MODEM_CHANNEL .. " open: " .. tostring(protocol.modem.isOpen(config.MODEM_CHANNEL)))
+        print("Discovery ch 100 open: " .. tostring(protocol.modem.isOpen(100)))
+    end
+    
+    sleep(2)
     
     -- Load turtles from assignments (initially marked offline)
     local assignments = projectServer.assignments[currentProject.name] or {}
@@ -1211,10 +1264,26 @@ local function init()
     -- Force modem to open the channel (just to be absolutely sure)
     if protocol.modem then
         protocol.modem.open(config.MODEM_CHANNEL)
+        print("Forced channel " .. config.MODEM_CHANNEL .. " open: " .. tostring(protocol.modem.isOpen(config.MODEM_CHANNEL)))
     end
     
     -- Request initial status from all turtles
     requestAllStatus()
+    
+    -- DEBUG: Test if modem receives ANYTHING
+    print("")
+    print("Testing modem reception...")
+    print("Waiting 5 seconds for messages...")
+    local testStart = os.clock()
+    while os.clock() - testStart < 5 do
+        local event, side, channel, replyChannel, message, distance = os.pullEvent()
+        if event == "modem_message" then
+            print("RAW MSG RECEIVED! Ch:" .. channel)
+            break
+        end
+    end
+    print("Test complete.")
+    sleep(2)
     
     return true
 end

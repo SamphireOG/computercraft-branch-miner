@@ -100,6 +100,9 @@ function protocol.send(msgType, data, targetID)
     
     local msg = protocol.createMessage(msgType, data)
     
+    -- DEBUG: Log transmission
+    print("TX Ch:" .. config.MODEM_CHANNEL .. " Type:" .. msgType .. " To:" .. tostring(targetID or "ALL"))
+    
     if targetID then
         -- Targeted message
         protocol.modem.transmit(config.MODEM_CHANNEL, config.MODEM_CHANNEL, msg)

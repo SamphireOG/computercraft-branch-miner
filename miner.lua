@@ -235,6 +235,9 @@ local function sendHeartbeat(force)
         }
     end
     
+    -- DEBUG: Show channel and status
+    print("Heartbeat Ch:" .. config.MODEM_CHANNEL .. " Status:" .. myState.status)
+    
     protocol.sendHeartbeat(myState.status, myState.position, fuelData, inventoryData, currentTask)
 end
 
