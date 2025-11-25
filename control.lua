@@ -62,10 +62,20 @@ local function switchProject(projectName)
     -- Reinitialize protocol with new channel
     protocol.init()
     
-    -- Initialize coordinator for work distribution
-    coordinator.init()
-    print("Coordinator initialized (running on this pocket PC)")
-    sleep(0.5)
+    -- Initialize coordinator for work distribution (with error handling)
+    local success, err = pcall(function()
+        coordinator.init()
+    end)
+    
+    if success then
+        print("Coordinator initialized (running on this pocket PC)")
+        sleep(0.5)
+    else
+        print("Warning: Coordinator init failed")
+        print("Error: " .. tostring(err))
+        print("(Controller will work in basic mode)")
+        sleep(2)
+    end
     
     -- Also keep discovery channel open for pairing
     if protocol.modem then
@@ -1784,33 +1794,35 @@ local function main()
                         local data = message.data or {}
                         local turtleID = message.senderId
                         
-                        -- Handle coordinator-specific messages
-                        if msgType == protocol.MSG_TYPES.REGISTER then
-                            coordinator.registerTurtle(turtleID, data.label, data.fuelLevel)
-                            
-                        elseif msgType == protocol.MSG_TYPES.CLAIM_TUNNEL then
-                            local assignment = coordinator.claimTunnel(turtleID)
-                            if assignment then
-                                -- Send tunnel assignment back to turtle
-                                protocol.send(protocol.MSG_TYPES.TUNNEL_ASSIGNED, {
-                                    assignment = assignment
-                                }, turtleID)
+                        -- Handle coordinator-specific messages (with error protection)
+                        pcall(function()
+                            if msgType == protocol.MSG_TYPES.REGISTER then
+                                coordinator.registerTurtle(turtleID, data.label, data.fuelLevel)
+                                
+                            elseif msgType == protocol.MSG_TYPES.CLAIM_TUNNEL then
+                                local assignment = coordinator.claimTunnel(turtleID)
+                                if assignment then
+                                    -- Send tunnel assignment back to turtle
+                                    protocol.send(protocol.MSG_TYPES.TUNNEL_ASSIGNED, {
+                                        assignment = assignment
+                                    }, turtleID)
+                                end
+                                
+                            elseif msgType == protocol.MSG_TYPES.TUNNEL_COMPLETE then
+                                coordinator.completeTunnel(data.assignmentID, data.blocksMined, data.oresFound)
+                                
+                            elseif msgType == protocol.MSG_TYPES.HEARTBEAT then
+                                -- Update coordinator's heartbeat tracking
+                                coordinator.updateHeartbeat(
+                                    turtleID,
+                                    data.status,
+                                    data.position,
+                                    data.fuel,
+                                    data.inventory,
+                                    data.currentTask
+                                )
                             end
-                            
-                        elseif msgType == protocol.MSG_TYPES.TUNNEL_COMPLETE then
-                            coordinator.completeTunnel(data.assignmentID, data.blocksMined, data.oresFound)
-                            
-                        elseif msgType == protocol.MSG_TYPES.HEARTBEAT then
-                            -- Update coordinator's heartbeat tracking
-                            coordinator.updateHeartbeat(
-                                turtleID,
-                                data.status,
-                                data.position,
-                                data.fuel,
-                                data.inventory,
-                                data.currentTask
-                            )
-                        end
+                        end)
                     end
                     
                     sleep(0)  -- Yield to prevent blocking
