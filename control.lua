@@ -455,6 +455,7 @@ local function drawControls()
         term.write("[S]hutdown [X]Remove [F]Refresh")
     else
         term.write("[F]Refresh [C]lear Offline [Click to select]")
+    end
 end
 
 local function drawScreen()
