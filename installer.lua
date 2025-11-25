@@ -374,6 +374,15 @@ local function main()
         end
     end
     
+    -- Clean up buggy old files
+    local buggyFiles = {"project_assignments.cfg"}
+    for _, filename in ipairs(buggyFiles) do
+        if fs.exists(filename) then
+            fs.delete(filename)
+            print("Deleted buggy: " .. filename)
+        end
+    end
+    
     print("")
     print("Downloading from GitHub...")
     

@@ -20,7 +20,7 @@ local function getProjectFilename(projectName)
 end
 
 local function getAssignmentsFilename()
-    return "project_assignments.cfg"
+    return "turtle_assignments.dat"
 end
 
 function server.loadProjects()
