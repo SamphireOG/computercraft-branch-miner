@@ -59,6 +59,11 @@ local function switchProject(projectName)
     currentProject = projectConfig
     config.MODEM_CHANNEL = projectConfig.channel or 42
     
+    -- Load project-specific settings
+    if projectConfig.startY then
+        config.START_Y = projectConfig.startY
+    end
+    
     -- Reinitialize protocol with new channel
     protocol.init()
     
@@ -532,6 +537,7 @@ local lastUpdate = 0
 
 -- Forward declarations for functions used in button callbacks
 local showProjectSelector
+local showProjectSettings
 local sendCommand
 local requestAllStatus
 local cleanupOffline
@@ -558,6 +564,13 @@ local function drawHeader()
     local title = " \7 BRANCH MINER CONTROL \7 "
     term.setCursorPos(math.floor((w - #title) / 2), 1)
     term.write(title)
+    
+    -- Settings button in top right
+    term.setCursorPos(w - 8, 1)
+    term.setBackgroundColor(colors.lightBlue)
+    term.setTextColor(colors.black)
+    term.write(" \15 SET ")
+    term.setBackgroundColor(colors.blue)
     
     -- Status line
     term.setCursorPos(1, 2)
@@ -1041,6 +1054,89 @@ function showProjectSelector()
     end
 end
 
+-- ========== PROJECT SETTINGS ==========
+
+function showProjectSettings()
+    if not currentProject then
+        return
+    end
+    
+    clearScreen()
+    local w, h = term.getSize()
+    
+    -- Header
+    term.setBackgroundColor(colors.lightBlue)
+    term.setTextColor(colors.black)
+    term.setCursorPos(1, 1)
+    term.clearLine()
+    local title = " \15 PROJECT SETTINGS "
+    term.setCursorPos(math.floor((w - #title) / 2), 1)
+    term.write(title)
+    
+    term.setBackgroundColor(colors.black)
+    term.setCursorPos(2, 3)
+    term.setTextColor(colors.white)
+    term.write("Project: ")
+    term.setTextColor(colors.purple)
+    term.write(currentProject.name)
+    
+    gui.clearButtons()
+    
+    -- Config values to edit
+    local settingsY = 5
+    
+    -- START_Y setting
+    term.setCursorPos(2, settingsY)
+    term.setBackgroundColor(colors.black)
+    term.setTextColor(colors.lightGray)
+    term.write("Mining Start Y Level:")
+    term.setCursorPos(2, settingsY + 1)
+    term.setTextColor(colors.white)
+    term.write("Current: ")
+    term.setTextColor(colors.lime)
+    term.write(tostring(config.START_Y))
+    
+    gui.createButton("edit_y", 2, settingsY + 2, 20, 1, "Edit Y Level", function()
+        term.setCursorPos(2, settingsY + 4)
+        term.setBackgroundColor(colors.black)
+        term.setTextColor(colors.yellow)
+        term.clearLine()
+        term.write("New Y Level: ")
+        term.setTextColor(colors.white)
+        local input = read()
+        local newY = tonumber(input)
+        if newY then
+            config.START_Y = newY
+            -- Save to project config
+            currentProject.startY = newY
+            saveProjectConfig(currentProject.name, currentProject)
+            -- Reinitialize coordinator with new config
+            coordinator.init()
+            drawScreen()
+        end
+    end, colors.blue, colors.white)
+    
+    -- Back button
+    gui.createButton("settings_back", 2, h - 2, w - 4, 1, "< BACK", function()
+        drawScreen()
+    end, colors.gray, colors.white)
+    
+    gui.drawAllButtons()
+    
+    -- Wait for input
+    while true do
+        local event = {os.pullEvent()}
+        if event[1] == "mouse_click" then
+            local clicked = gui.handleClick(event[3], event[4])
+            if clicked == "settings_back" then
+                break
+            end
+        elseif event[1] == "key" and event[2] == keys.q then
+            break
+        end
+    end
+end
+
 -- ========== INPUT HANDLING ==========
 
 local function handleInput()
@@ -1319,18 +1415,23 @@ local function mainLoop()
             local x = event[3]
             local y = event[4]
             
-            -- Check for GUI button clicks first
-            local buttonClicked = gui.handleClick(x, y)
-            if buttonClicked then
+            -- Check for settings button in header (top right)
+            if y == 1 and x >= w - 8 and x <= w - 2 then
+                showProjectSettings()
+                drawScreen()
+                lastUpdate = os.clock()
+            -- Check for GUI button clicks
+            elseif gui.handleClick(x, y) then
                 -- Force immediate redraw after button click
                 drawScreen()
                 lastUpdate = os.clock()
             else
                 -- Not a button, check turtle list clicks
                 local w, h = term.getSize()
-                local listStart = 4
-                local listHeight = h - 8
+                local listStart = 5  -- Match drawTurtleList
+                local listHeight = h - 10  -- Match drawTurtleList
                 
+                -- Click anywhere on the row to select turtle (full width)
                 if y >= listStart and y < listStart + listHeight then
                     local idx = (y - listStart + 1) + scrollOffset
                     
