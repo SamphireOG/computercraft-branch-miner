@@ -65,14 +65,6 @@ local function switchProject(projectName)
         protocol.modem.open(100)
     end
     
-    -- DEBUG: Verify channel is open
-    if protocol.modem then
-        print("DEBUG: Modem channels open:")
-        for _, ch in ipairs({protocol.modem.isOpen(config.MODEM_CHANNEL), protocol.modem.isOpen(100)}) do
-            print(" - " .. tostring(ch))
-        end
-    end
-    
     -- Clear old turtle data
     turtles = {}
     selectedTurtle = nil
@@ -739,19 +731,10 @@ local function checkForMessages()
     -- Check for modem messages from turtles
     local event, side, channel, replyChannel, message, distance = os.pullEvent("modem_message")
     
-    -- DEBUG: Log ALL messages
-    print("MSG: Ch" .. channel .. " (want:" .. config.MODEM_CHANNEL .. ") Type:" .. tostring(type(message)))
-    
     if channel == config.MODEM_CHANNEL and type(message) == "table" then
         local msgType = message.type
         local turtleID = message.sender
         local data = message.data or {}
-        
-        -- DEBUG: Log received heartbeat
-        print("MATCHED! Type:" .. tostring(msgType) .. " From:" .. tostring(turtleID))
-        if msgType == protocol.MSG_TYPES.HEARTBEAT then
-            print("HEARTBEAT from " .. turtleID .. " status:" .. tostring(data.status))
-        end
         
         if msgType == protocol.MSG_TYPES.HEARTBEAT then
             -- Update turtle status from heartbeat
@@ -1192,16 +1175,7 @@ local function init()
     
     print("")
     print("Loading " .. currentProject.name .. "...")
-    print("Listening on channel: " .. config.MODEM_CHANNEL)
-    print("Modem: " .. tostring(protocol.modem ~= nil))
-    
-    -- DEBUG: Check if channel is actually open
-    if protocol.modem then
-        print("Channel " .. config.MODEM_CHANNEL .. " open: " .. tostring(protocol.modem.isOpen(config.MODEM_CHANNEL)))
-        print("Discovery ch 100 open: " .. tostring(protocol.modem.isOpen(100)))
-    end
-    
-    sleep(2)
+    sleep(0.5)
     
     -- Load turtles from assignments (initially marked offline)
     local assignments = projectServer.assignments[currentProject.name] or {}
@@ -1225,26 +1199,10 @@ local function init()
     -- Force modem to open the channel (just to be absolutely sure)
     if protocol.modem then
         protocol.modem.open(config.MODEM_CHANNEL)
-        print("Forced channel " .. config.MODEM_CHANNEL .. " open: " .. tostring(protocol.modem.isOpen(config.MODEM_CHANNEL)))
     end
     
     -- Request initial status from all turtles
     requestAllStatus()
-    
-    -- DEBUG: Test if modem receives ANYTHING
-    print("")
-    print("Testing modem reception...")
-    print("Waiting 5 seconds for messages...")
-    local testStart = os.clock()
-    while os.clock() - testStart < 5 do
-        local event, side, channel, replyChannel, message, distance = os.pullEvent()
-        if event == "modem_message" then
-            print("RAW MSG RECEIVED! Ch:" .. channel)
-            break
-        end
-    end
-    print("Test complete.")
-    sleep(2)
     
     return true
 end
