@@ -13,6 +13,33 @@ utils.position = {x = 0, y = 0, z = 0, facing = 0}
 -- Facing: 0=North(-Z), 1=East(+X), 2=South(+Z), 3=West(-X)
 utils.facingNames = {"North", "East", "South", "West"}
 
+-- ========== CHEST LOCATION MEMORY ==========
+
+utils.protectedChestLocations = {}
+
+function utils.rememberChestLocation(x, y, z, description)
+    -- Remember a chest location that should NEVER be dug
+    local key = x .. "," .. y .. "," .. z
+    utils.protectedChestLocations[key] = {
+        x = x,
+        y = y,
+        z = z,
+        description = description or "Supply chest"
+    }
+    print("✓ Chest protected: " .. description .. " at " .. x .. "," .. y .. "," .. z)
+end
+
+function utils.isProtectedChestLocation(x, y, z)
+    -- Check if this location has a protected chest
+    local key = x .. "," .. y .. "," .. z
+    return utils.protectedChestLocations[key] ~= nil
+end
+
+function utils.clearProtectedChests()
+    -- Clear all protected chest locations (for fresh start)
+    utils.protectedChestLocations = {}
+end
+
 function utils.setPosition(x, y, z, facing)
     utils.position.x = x
     utils.position.y = y
@@ -43,15 +70,31 @@ end
 
 function utils.detectOrientation()
     -- Detect turtle's facing direction by checking for chests
-    -- Expected setup: Ores chest in FRONT (south/+Z), Fuel chest ABOVE, Cobble chest BELOW
+    -- AND remember chest locations to protect them from digging
     
     print("Detecting orientation from chests...")
-    print("Checking: Up=" .. tostring(utils.isChest("up")) .. 
-          " Down=" .. tostring(utils.isChest("down")))
     
-    -- First verify we have chests above/below (confirms we're at home base)
+    -- Clear old chest locations
+    utils.clearProtectedChests()
+    
+    -- Check for chests above/below and REMEMBER their locations
     local hasChestAbove = utils.isChest("up")
     local hasChestBelow = utils.isChest("down")
+    
+    print("Checking: Up=" .. tostring(hasChestAbove) .. 
+          " Down=" .. tostring(hasChestBelow))
+    
+    if hasChestAbove then
+        -- Fuel chest above
+        local chestX, chestY, chestZ = config.HOME_X, config.HOME_Y + 1, config.HOME_Z
+        utils.rememberChestLocation(chestX, chestY, chestZ, "Fuel chest")
+    end
+    
+    if hasChestBelow then
+        -- Cobble chest below
+        local chestX, chestY, chestZ = config.HOME_X, config.HOME_Y - 1, config.HOME_Z
+        utils.rememberChestLocation(chestX, chestY, chestZ, "Cobble chest")
+    end
     
     if not (hasChestAbove or hasChestBelow) then
         print("⚠ No chests above/below - not at home base?")
@@ -61,25 +104,32 @@ function utils.detectOrientation()
     print("✓ Chests detected above/below (at home base)")
     
     -- Now check all 4 directions for the ores chest in front
-    local startFacing = utils.position.facing or 0
-    
     for turn = 0, 3 do
         print("Checking direction " .. turn .. "...")
         
         if utils.isChest("forward") then
-            -- Found ores chest in front
-            -- Ores chest is at HOME_Z + 1 (south of home)
-            -- Mining tunnels go north (negative Z), so we need to face NORTH (away from chest)
-            turtle.turnRight()
-            turtle.turnRight()  -- Turn 180° to face away from chest
+            -- Found ores chest in front - remember its location
+            -- Calculate chest position based on current facing
+            local chestX, chestY, chestZ = config.HOME_X, config.HOME_Y, config.HOME_Z
+            if utils.position.facing == 0 then chestZ = chestZ - 1
+            elseif utils.position.facing == 1 then chestX = chestX + 1
+            elseif utils.position.facing == 2 then chestZ = chestZ + 1
+            else chestX = chestX - 1 end
             
-            utils.position.facing = 0  -- Facing NORTH (toward mining tunnels, negative Z)
+            utils.rememberChestLocation(chestX, chestY, chestZ, "Ores chest")
+            
+            -- Turn to face NORTH (away from chest, toward mining)
+            turtle.turnRight()
+            turtle.turnRight()
+            
+            utils.position.facing = 0  -- Facing NORTH
             print("✓ Orientation set: Facing North (toward mining area)")
             print("  (Ores chest is behind/south of us)")
             return true
         end
         
         turtle.turnRight()
+        utils.position.facing = (utils.position.facing + 1) % 4
     end
     
     print("⚠ Could not find ores chest in any direction")
@@ -196,45 +246,26 @@ function utils.safeMove(direction, useBroadcast)
         
         -- Movement failed - check what's blocking
         if detectFunc() then
-            -- CHEST PROTECTION: NEVER dig chests (they're our supply chests!)
-            local success, blockData = inspectFunc()
-            if success and blockData and blockData.name then
-                local isChest = blockData.name:match("chest") ~= nil
-                
-                if isChest then
-                    -- Calculate where we are and where we're trying to go
-                    local targetX, targetY, targetZ = utils.position.x, utils.position.y, utils.position.z
-                    if direction == "forward" then
-                        if utils.position.facing == 0 then targetZ = targetZ - 1
-                        elseif utils.position.facing == 1 then targetX = targetX + 1
-                        elseif utils.position.facing == 2 then targetZ = targetZ + 1
-                        else targetX = targetX - 1 end
-                    elseif direction == "up" then
-                        targetY = targetY + 1
-                    elseif direction == "down" then
-                        targetY = targetY - 1
-                    end
-                    
-                    -- Check if chest is near home (within 3 blocks)
-                    local nearHome = utils.isNearHomeBase(targetX, targetY, targetZ)
-                    
-                    -- CRITICAL: Protect ALL chests near home, especially up/down/forward from start position
-                    if nearHome then
-                        print("⚠ CHEST PROTECTED at " .. targetX .. "," .. targetY .. "," .. targetZ)
-                        print("  Current pos: " .. utils.position.x .. "," .. utils.position.y .. "," .. utils.position.z)
-                        return false, "Blocked by protected supply chest (won't dig)"
-                    end
-                    
-                    -- Also protect any chest when we're very close to home position
-                    local atHome = (math.abs(utils.position.x) <= 1 and 
-                                   math.abs(utils.position.y - config.HOME_Y) <= 1 and 
-                                   math.abs(utils.position.z) <= 1)
-                    
-                    if atHome then
-                        print("⚠ CHEST PROTECTED (at home base)")
-                        return false, "Blocked by supply chest at home"
-                    end
-                end
+            -- CHEST PROTECTION: Check if target location is a protected chest
+            local targetX, targetY, targetZ = utils.position.x, utils.position.y, utils.position.z
+            if direction == "forward" then
+                if utils.position.facing == 0 then targetZ = targetZ - 1
+                elseif utils.position.facing == 1 then targetX = targetX + 1
+                elseif utils.position.facing == 2 then targetZ = targetZ + 1
+                else targetX = targetX - 1 end
+            elseif direction == "up" then
+                targetY = targetY + 1
+            elseif direction == "down" then
+                targetY = targetY - 1
+            end
+            
+            -- Check if this is a protected chest location
+            if utils.isProtectedChestLocation(targetX, targetY, targetZ) then
+                local key = targetX .. "," .. targetY .. "," .. targetZ
+                local chest = utils.protectedChestLocations[key]
+                print("⚠ BLOCKED by " .. chest.description)
+                print("  Location: " .. targetX .. "," .. targetY .. "," .. targetZ)
+                return false, "Blocked by protected chest"
             end
             
             -- Block detected - try to dig it (not a protected chest)
@@ -330,35 +361,36 @@ end
 -- ========== SAFE DIGGING (WITH CHEST PROTECTION) ==========
 
 function utils.safeDig(direction)
-    -- Safe digging that NEVER breaks chests
+    -- Safe digging that NEVER breaks remembered chest locations
     -- Returns: success (boolean), reason (string or nil)
     
-    local inspectFunc, digFunc
+    local digFunc
+    local targetX, targetY, targetZ = utils.position.x, utils.position.y, utils.position.z
+    
     if direction == "forward" then
-        inspectFunc = turtle.inspect
         digFunc = turtle.dig
+        -- Calculate forward position based on facing
+        if utils.position.facing == 0 then targetZ = targetZ - 1
+        elseif utils.position.facing == 1 then targetX = targetX + 1
+        elseif utils.position.facing == 2 then targetZ = targetZ + 1
+        else targetX = targetX - 1 end
     elseif direction == "up" then
-        inspectFunc = turtle.inspectUp
         digFunc = turtle.digUp
+        targetY = targetY + 1
     elseif direction == "down" then
-        inspectFunc = turtle.inspectDown
         digFunc = turtle.digDown
+        targetY = targetY - 1
     else
         return false, "Invalid direction"
     end
     
-    -- Check what's there
-    local success, blockData = inspectFunc()
-    if not success then
-        -- Nothing to dig
-        return true
-    end
-    
-    -- Check if it's a chest
-    if blockData and blockData.name and blockData.name:match("chest") then
-        print("⚠ CHEST DETECTED - refusing to dig " .. direction)
-        print("  Block: " .. blockData.name)
-        return false, "Chest protected"
+    -- Check if this location is a protected chest
+    if utils.isProtectedChestLocation(targetX, targetY, targetZ) then
+        local key = targetX .. "," .. targetY .. "," .. targetZ
+        local chest = utils.protectedChestLocations[key]
+        print("⚠ PROTECTED CHEST - refusing to dig " .. direction)
+        print("  " .. chest.description .. " at " .. targetX .. "," .. targetY .. "," .. targetZ)
+        return false, "Protected chest location"
     end
     
     -- Safe to dig
