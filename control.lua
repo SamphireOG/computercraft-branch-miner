@@ -493,59 +493,59 @@ local function drawControls()
     local buttonY = controlY + 1
     
     if selectedTurtle then
-        -- Turtle-specific controls with icons (compact layout)
-        gui.createButton("pause", 1, buttonY, 7, 1, "Pause", function()
+        -- Turtle-specific controls (ultra-compact for 26-char screen)
+        gui.createButton("pause", 1, buttonY, 6, 1, "Pause", function()
             sendCommand(protocol.MSG_TYPES.CMD_PAUSE, selectedTurtle)
         end, colors.orange, colors.white)
         
-        gui.createButton("resume", 9, buttonY, 8, 1, "Resume", function()
+        gui.createButton("resume", 8, buttonY, 7, 1, "Resume", function()
             sendCommand(protocol.MSG_TYPES.CMD_RESUME, selectedTurtle)
         end, colors.lime, colors.black)
         
-        gui.createButton("home", 18, buttonY, 6, 1, "Home", function()
+        gui.createButton("home", 16, buttonY, 5, 1, "Home", function()
             sendCommand(protocol.MSG_TYPES.CMD_RETURN_BASE, selectedTurtle)
         end, colors.lightBlue, colors.black)
         
-        gui.createButton("deselect", 25, buttonY, 8, 1, "Cancel", function()
+        gui.createButton("deselect", 22, buttonY, 5, 1, "X", function()
             selectedTurtle = nil
         end, colors.gray, colors.white)
         
         -- Second row
-        gui.createButton("shutdown", 1, buttonY + 1, 10, 1, "Shutdown", function()
+        gui.createButton("shutdown", 1, buttonY + 1, 8, 1, "Shutdown", function()
             sendCommand(protocol.MSG_TYPES.CMD_SHUTDOWN, selectedTurtle)
         end, colors.red, colors.white)
         
-        gui.createButton("remove", 12, buttonY + 1, 8, 1, "Remove", function()
+        gui.createButton("remove", 10, buttonY + 1, 7, 1, "Remove", function()
             removeTurtle(selectedTurtle)
         end, colors.pink, colors.white)
         
-        gui.createButton("refresh", 21, buttonY + 1, 9, 1, "Refresh", function()
+        gui.createButton("refresh", 18, buttonY + 1, 9, 1, "Refresh", function()
             requestAllStatus()
         end, colors.blue, colors.white)
     else
-        -- Global controls (compact layout)
-        gui.createButton("pauseAll", 1, buttonY, 11, 1, "Pause All", function()
+        -- Global controls (ultra-compact)
+        gui.createButton("pauseAll", 1, buttonY, 9, 1, "Pause All", function()
             sendCommand(protocol.MSG_TYPES.CMD_PAUSE, nil)
         end, colors.orange, colors.white)
         
-        gui.createButton("resumeAll", 13, buttonY, 12, 1, "Resume All", function()
+        gui.createButton("resumeAll", 11, buttonY, 10, 1, "Resume All", function()
             sendCommand(protocol.MSG_TYPES.CMD_RESUME, nil)
         end, colors.lime, colors.black)
         
-        gui.createButton("quit", 26, buttonY, 6, 1, "Quit", function()
+        gui.createButton("quit", 22, buttonY, 5, 1, "Quit", function()
             running = false
         end, colors.red, colors.white)
         
         -- Second row
-        gui.createButton("refresh", 1, buttonY + 1, 9, 1, "Refresh", function()
+        gui.createButton("refresh", 1, buttonY + 1, 8, 1, "Refresh", function()
             requestAllStatus()
         end, colors.blue, colors.white)
         
-        gui.createButton("clear", 11, buttonY + 1, 14, 1, "Clear Offline", function()
+        gui.createButton("clear", 10, buttonY + 1, 8, 1, "Clear", function()
             cleanupOffline()
         end, colors.gray, colors.white)
         
-        gui.createButton("projects", 26, buttonY + 1, 10, 1, "Projects", function()
+        gui.createButton("projects", 19, buttonY + 1, 8, 1, "Projects", function()
             showProjectSelector()
         end, colors.purple, colors.white)
     end
