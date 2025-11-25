@@ -879,19 +879,11 @@ local function init()
                             -- Approve the turtle
                             local project = loadProjectConfig(projectName)
                             if project then
-                                -- Add to assignments
-                                projectServer.assignments = projectServer.assignments or {}
-                                projectServer.assignments[projectName] = projectServer.assignments[projectName] or {}
-                                
+                                -- Check if first turtle BEFORE adding
                                 local isFirstTurtle = projectServer.getTurtleCount(projectName) == 0
                                 
-                                projectServer.assignments[projectName][turtleID] = {
-                                    label = turtleLabel,
-                                    lastSeen = os.epoch("utc"),
-                                    joinedAt = os.epoch("utc")
-                                }
-                                
-                                projectServer.saveAssignments()
+                                -- Add turtle using proper method
+                                projectServer.addTurtle(projectName, turtleID, turtleLabel)
                                 
                                 -- Send approval
                                 protocol.modem.transmit(100, 100, {
@@ -905,7 +897,8 @@ local function init()
                                 })
                                 
                                 print("")
-                                print("Turtle paired!")
+                                print("Turtle paired & saved!")
+                                print("Count: " .. projectServer.getTurtleCount(projectName))
                                 sleep(2)
                             end
                         else

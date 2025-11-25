@@ -92,6 +92,22 @@ function server.createProject(projectName, projectConfig)
     return true
 end
 
+function server.addTurtle(projectName, turtleID, turtleLabel)
+    -- Add a turtle to a project's assignments
+    if not server.assignments[projectName] then
+        server.assignments[projectName] = {}
+    end
+    
+    server.assignments[projectName][turtleID] = {
+        label = turtleLabel,
+        lastSeen = os.epoch("utc"),
+        joinedAt = os.epoch("utc")
+    }
+    
+    server.saveAssignments()
+    return true
+end
+
 function server.getTurtleCount(projectName)
     if not server.assignments[projectName] then
         return 0
