@@ -914,36 +914,39 @@ function showProjectSelector()
         projectManagementMenu()
     end, colors.orange, colors.white)
     
-    gui.drawAllButtons()
-    
-    -- Draw project card text AFTER buttons
-    for _, card in ipairs(projectCards) do
-        local buttonY = card.y
-        local bgColor = card.bgColor
-        
-        term.setCursorPos(3, buttonY)
-        term.setBackgroundColor(bgColor)
-        term.setTextColor(colors.white)
-        term.write(string.rep(" ", w - 6))
-        
-        term.setCursorPos(3, buttonY + 1)
-        local nameText = (card.isCurrent and "\16 " or "  ") .. card.name
-        term.write(" " .. nameText)
-        term.setCursorPos(w - 15, buttonY + 1)
-        term.setBackgroundColor(colors.lightGray)
-        term.setTextColor(colors.black)
-        term.write(" Ch:" .. card.channel .. " ")
-        term.setBackgroundColor(bgColor)
-        term.write(" ")
-        
-        term.setCursorPos(3, buttonY + 2)
-        term.setTextColor(colors.lightGray)
-        term.write("   " .. card.turtles .. " turtle(s)")
-        term.setTextColor(colors.white)
-        term.setCursorPos(3, buttonY + 3)
-        term.setBackgroundColor(bgColor)
-        term.write(string.rep(" ", w - 6))
+    -- Function to draw card text
+    local function drawCardText()
+        for _, card in ipairs(projectCards) do
+            local buttonY = card.y
+            local bgColor = card.bgColor
+            
+            term.setCursorPos(3, buttonY)
+            term.setBackgroundColor(bgColor)
+            term.setTextColor(colors.white)
+            term.write(string.rep(" ", w - 6))
+            
+            term.setCursorPos(3, buttonY + 1)
+            local nameText = (card.isCurrent and "\16 " or "  ") .. card.name
+            term.write(" " .. nameText)
+            term.setCursorPos(w - 15, buttonY + 1)
+            term.setBackgroundColor(colors.lightGray)
+            term.setTextColor(colors.black)
+            term.write(" Ch:" .. card.channel .. " ")
+            term.setBackgroundColor(bgColor)
+            term.write(" ")
+            
+            term.setCursorPos(3, buttonY + 2)
+            term.setTextColor(colors.lightGray)
+            term.write("   " .. card.turtles .. " turtle(s)")
+            term.setTextColor(colors.white)
+            term.setCursorPos(3, buttonY + 3)
+            term.setBackgroundColor(bgColor)
+            term.write(string.rep(" ", w - 6))
+        end
     end
+    
+    gui.drawAllButtons()
+    drawCardText()
     
     -- Handle interactions with local loop variable
     local selectorRunning = true
@@ -956,6 +959,8 @@ function showProjectSelector()
             end
         elseif event[1] == "mouse_drag" then
             gui.updateHover(event[3], event[4])
+            gui.drawAllButtons()
+            drawCardText()  -- Redraw text after hover
         elseif event[1] == "key" and event[2] == keys.q then
             selectorRunning = false
         end
