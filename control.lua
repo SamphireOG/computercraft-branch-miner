@@ -60,6 +60,11 @@ local function switchProject(projectName)
     -- Reinitialize protocol with new channel
     protocol.init()
     
+    -- Also keep discovery channel open for pairing
+    if protocol.modem then
+        protocol.modem.open(100)
+    end
+    
     -- Clear old turtle data
     turtles = {}
     selectedTurtle = nil
@@ -699,6 +704,37 @@ local function handleInput()
     end
 end
 
+-- ========== MESSAGE HANDLING ==========
+
+local function checkForMessages()
+    -- Check for modem messages from turtles
+    local event, side, channel, replyChannel, message, distance = os.pullEvent("modem_message")
+    
+    if channel == config.MODEM_CHANNEL and type(message) == "table" then
+        local msgType = message.type
+        local turtleID = message.senderId
+        
+        if msgType == protocol.MSG_TYPES.HEARTBEAT then
+            -- Update turtle status from heartbeat
+            if not turtles[turtleID] then
+                turtles[turtleID] = {}
+            end
+            
+            turtles[turtleID] = {
+                id = turtleID,
+                label = message.label or ("Turtle-" .. turtleID),
+                status = message.status or "idle",
+                position = message.position or {x = 0, y = 0, z = 0},
+                fuel = message.fuel and message.fuel.level or 0,
+                fuelPercent = message.fuel and message.fuel.percent or 0,
+                inventory = message.inventory and message.inventory.freeSlots or 0,
+                lastSeen = os.epoch("utc"),
+                currentTask = message.currentTask or "Idle"
+            }
+        end
+    end
+end
+
 -- ========== MAIN LOOP ==========
 
 local function mainLoop()
@@ -980,6 +1016,25 @@ local function init()
     
     print("")
     print("Loading " .. currentProject.name .. "...")
+    sleep(0.5)
+    
+    -- Load turtles from assignments
+    local assignments = projectServer.assignments[currentProject.name] or {}
+    for turtleID, info in pairs(assignments) do
+        turtles[turtleID] = {
+            id = turtleID,
+            label = info.label or ("Turtle-" .. turtleID),
+            status = "idle",
+            position = {x = 0, y = 0, z = 0},
+            fuel = 0,
+            fuelPercent = 0,
+            inventory = 0,
+            lastSeen = info.lastSeen or os.epoch("utc"),
+            currentTask = "Offline - waiting for heartbeat"
+        }
+    end
+    
+    print("Loaded " .. projectServer.getTurtleCount(currentProject.name) .. " turtles")
     sleep(0.5)
     
     -- Request initial status from all turtles
