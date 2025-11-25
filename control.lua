@@ -731,16 +731,15 @@ local function checkForMessages()
     -- Check for modem messages from turtles
     local event, side, channel, replyChannel, message, distance = os.pullEvent("modem_message")
     
-    -- DEBUG: Show all received messages
-    if type(message) == "table" then
-        term.setCursorPos(1, 1)
-        term.write("MSG Ch:" .. channel .. " Type:" .. tostring(message.type) .. "      ")
-    end
-    
     if channel == config.MODEM_CHANNEL and type(message) == "table" then
         local msgType = message.type
-        local turtleID = message.sender  -- Fixed: was senderId, should be sender
+        local turtleID = message.sender
         local data = message.data or {}
+        
+        -- DEBUG: Log received heartbeat
+        if msgType == protocol.MSG_TYPES.HEARTBEAT then
+            print("HEARTBEAT from " .. turtleID .. " status:" .. tostring(data.status))
+        end
         
         if msgType == protocol.MSG_TYPES.HEARTBEAT then
             -- Update turtle status from heartbeat
@@ -1181,7 +1180,9 @@ local function init()
     
     print("")
     print("Loading " .. currentProject.name .. "...")
-    sleep(0.5)
+    print("Listening on channel: " .. config.MODEM_CHANNEL)
+    print("Modem: " .. tostring(protocol.modem ~= nil))
+    sleep(1)
     
     -- Load turtles from assignments (initially marked offline)
     local assignments = projectServer.assignments[currentProject.name] or {}
