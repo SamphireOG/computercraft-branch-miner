@@ -18,7 +18,8 @@ local FILES = {
         "config.lua",
         "protocol.lua",
         "control.lua",
-        "project-server.lua"
+        "project-server.lua",
+        "gui.lua"
     }
 }
 
