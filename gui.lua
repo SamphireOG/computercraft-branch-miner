@@ -66,11 +66,13 @@ function gui.drawButton(button, isPressed)
     
     local isHovered = (gui.hoveredButton == button.id)
     local bgColor = button.bgColor
+    local borderChar = " "
     
     if isPressed then
         bgColor = button.pressedBgColor
     elseif isHovered then
         bgColor = button.hoverBgColor
+        borderChar = "\7"  -- Border indicator when hovered
     end
     
     if not button.enabled then
@@ -83,10 +85,15 @@ function gui.drawButton(button, isPressed)
     
     for dy = 0, button.height - 1 do
         term.setCursorPos(button.x, button.y + dy)
-        term.write(string.rep(" ", button.width))
+        if dy == 0 or dy == button.height - 1 then
+            -- Top/bottom with subtle border
+            term.write(borderChar .. string.rep(" ", button.width - 2) .. borderChar)
+        else
+            term.write(string.rep(" ", button.width))
+        end
     end
     
-    -- Draw button text (centered)
+    -- Draw button text (centered with icon support)
     local textY = button.y + math.floor(button.height / 2)
     local textX = button.x + math.floor((button.width - #button.text) / 2)
     term.setCursorPos(textX, textY)

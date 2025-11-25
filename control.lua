@@ -377,12 +377,12 @@ local function drawTurtleList()
     local listStart = 4
     local listHeight = h - 7  -- Leave room for header and controls
     
-    -- List header with fancy colors
+    -- List header with fancy colors and icons
     term.setCursorPos(1, listStart - 1)
     term.setBackgroundColor(colors.gray)
     term.setTextColor(colors.white)
     term.clearLine()
-    term.write(" ID  Label         Status      Fuel  Inv ")
+    term.write(" ID  Label        Status       \9Fuel \7Inv ")
     term.setBackgroundColor(colorScheme.background)
     
     -- Draw turtles
@@ -493,59 +493,59 @@ local function drawControls()
     local buttonY = controlY + 1
     
     if selectedTurtle then
-        -- Turtle-specific controls
-        gui.createButton("pause", 1, buttonY, 8, 1, "Pause", function()
+        -- Turtle-specific controls with icons
+        gui.createButton("pause", 1, buttonY, 8, 1, "\149Pause", function()
             sendCommand(protocol.MSG_TYPES.CMD_PAUSE, selectedTurtle)
         end, colors.orange, colors.white)
         
-        gui.createButton("resume", 10, buttonY, 8, 1, "Resume", function()
+        gui.createButton("resume", 10, buttonY, 9, 1, "\16Resume", function()
             sendCommand(protocol.MSG_TYPES.CMD_RESUME, selectedTurtle)
         end, colors.lime, colors.black)
         
-        gui.createButton("home", 19, buttonY, 8, 1, "Home", function()
+        gui.createButton("home", 20, buttonY, 7, 1, "\127Home", function()
             sendCommand(protocol.MSG_TYPES.CMD_RETURN_BASE, selectedTurtle)
         end, colors.lightBlue, colors.black)
         
-        gui.createButton("deselect", 28, buttonY, 10, 1, "Deselect", function()
+        gui.createButton("deselect", 28, buttonY, 10, 1, "X Cancel", function()
             selectedTurtle = nil
         end, colors.gray, colors.white)
         
         -- Second row
-        gui.createButton("shutdown", 1, buttonY + 1, 10, 1, "Shutdown", function()
+        gui.createButton("shutdown", 1, buttonY + 1, 11, 1, "\15Shutdown", function()
             sendCommand(protocol.MSG_TYPES.CMD_SHUTDOWN, selectedTurtle)
         end, colors.red, colors.white)
         
-        gui.createButton("remove", 12, buttonY + 1, 8, 1, "Remove", function()
+        gui.createButton("remove", 13, buttonY + 1, 9, 1, "\215Remove", function()
             removeTurtle(selectedTurtle)
         end, colors.pink, colors.white)
         
-        gui.createButton("refresh", 21, buttonY + 1, 9, 1, "Refresh", function()
+        gui.createButton("refresh", 23, buttonY + 1, 10, 1, "\18Refresh", function()
             requestAllStatus()
         end, colors.blue, colors.white)
     else
-        -- Global controls
-        gui.createButton("pauseAll", 1, buttonY, 11, 1, "Pause All", function()
+        -- Global controls with icons
+        gui.createButton("pauseAll", 1, buttonY, 12, 1, "\149Pause All", function()
             sendCommand(protocol.MSG_TYPES.CMD_PAUSE, nil)
         end, colors.orange, colors.white)
         
-        gui.createButton("resumeAll", 13, buttonY, 12, 1, "Resume All", function()
+        gui.createButton("resumeAll", 14, buttonY, 13, 1, "\16Resume All", function()
             sendCommand(protocol.MSG_TYPES.CMD_RESUME, nil)
         end, colors.lime, colors.black)
         
-        gui.createButton("quit", 26, buttonY, 7, 1, "Quit", function()
+        gui.createButton("quit", 28, buttonY, 7, 1, "Quit", function()
             running = false
         end, colors.red, colors.white)
         
         -- Second row
-        gui.createButton("refresh", 1, buttonY + 1, 9, 1, "Refresh", function()
+        gui.createButton("refresh", 1, buttonY + 1, 10, 1, "\18Refresh", function()
             requestAllStatus()
         end, colors.blue, colors.white)
         
-        gui.createButton("clear", 11, buttonY + 1, 13, 1, "Clear Offline", function()
+        gui.createButton("clear", 12, buttonY + 1, 15, 1, "\215Clear Offline", function()
             cleanupOffline()
         end, colors.gray, colors.white)
         
-        gui.createButton("projects", 25, buttonY + 1, 10, 1, "Projects", function()
+        gui.createButton("projects", 28, buttonY + 1, 11, 1, "\7Projects", function()
             showProjectSelector()
         end, colors.purple, colors.white)
     end
@@ -615,148 +615,142 @@ end
 
 local function showProjectSelector()
     clearScreen()
+    local w, h = term.getSize()
     
-    print("=== Project Selector ===")
-    print("")
+    -- Fancy header
+    term.setBackgroundColor(colors.blue)
+    term.setTextColor(colors.white)
+    term.setCursorPos(1, 1)
+    term.clearLine()
+    local title = " \7 PROJECT SELECTOR \7 "
+    term.setCursorPos(math.floor((w - #title) / 2), 1)
+    term.write(title)
+    
+    term.setBackgroundColor(colors.black)
+    term.setCursorPos(1, 3)
     
     availableProjects = listProjects()
     
     if #availableProjects == 0 then
+        term.setTextColor(colors.red)
         print("No projects found!")
+        term.setTextColor(colors.white)
+        print("")
         print("Run installer to create a project first.")
         print("")
-        print("Press any key to continue...")
-        os.pullEvent("key")
-        return
+        
+        gui.createButton("back", math.floor(w/2 - 5), h - 2, 10, 1, "Go Back", function()
+            running = false  -- Trigger return
+        end, colors.gray, colors.white)
+        gui.drawAllButtons()
+        
+        while true do
+            local event = {os.pullEvent()}
+            if event[1] == "mouse_click" then
+                if gui.handleClick(event[3], event[4]) then
+                    return
+                end
+            elseif event[1] == "key" then
+                return
+            end
+        end
     end
     
-    print("Available projects:")
+    term.setTextColor(colors.lime)
+    print("Available Projects:")
     print("")
     
     local selectableProjects = {}
+    local buttonY = 6
+    gui.clearButtons()
+    
     for i, projName in ipairs(availableProjects) do
         local summary = projectServer.getProjectSummary(projName)
         local isCurrent = currentProject and currentProject.name == projName
-        local marker = isCurrent and "> " or "  "
         
-        if summary then
-            local status = ""
-            local selectable = false
+        if summary and summary.turtleCount > 0 then
+            table.insert(selectableProjects, i)
             
-            if summary.turtleCount > 0 then
-                status = summary.turtleCount .. " turtles"
-                selectable = true
-                table.insert(selectableProjects, i)
-            else
-                status = "No turtles (not ready)"
-            end
+            -- Create clickable project button
+            local bgColor = isCurrent and colors.purple or colors.gray
+            local textColor = colors.white
             
-            print(marker .. i .. ". " .. summary.name .. " (Ch:" .. summary.channel .. ")")
-            print("      Status: " .. status)
-            print("")
+            gui.createButton("proj_" .. i, 2, buttonY, w - 4, 3, "", function()
+                local success, err = switchProject(projName)
+                if success then
+                    running = false  -- Trigger return to reload
+                end
+            end, bgColor, textColor)
+            
+            -- Draw custom project card
+            term.setCursorPos(3, buttonY)
+            term.setBackgroundColor(bgColor)
+            term.setTextColor(colors.white)
+            term.write(string.rep(" ", w - 6))
+            
+            term.setCursorPos(3, buttonY + 1)
+            local nameText = (isCurrent and "\16 " or "  ") .. summary.name
+            term.write(" " .. nameText)
+            term.setCursorPos(w - 15, buttonY + 1)
+            term.setBackgroundColor(colors.lightGray)
+            term.setTextColor(colors.black)
+            term.write(" Ch:" .. summary.channel .. " ")
+            term.setBackgroundColor(bgColor)
+            term.write(" ")
+            
+            term.setCursorPos(3, buttonY + 2)
+            term.setTextColor(colors.lightGray)
+            term.write("   " .. summary.turtleCount .. " turtle(s)")
+            term.setTextColor(colors.white)
+            term.setCursorPos(3, buttonY + 3)
+            term.setBackgroundColor(bgColor)
+            term.write(string.rep(" ", w - 6))
+            
+            buttonY = buttonY + 4
         end
     end
     
     if #selectableProjects == 0 then
+        term.setTextColor(colors.red)
         print("No projects have turtles assigned!")
-        print("")
-        print("Press any key to continue...")
-        os.pullEvent("key")
-        return
+        term.setTextColor(colors.white)
     end
     
-    print("Enter project number (" .. table.concat(selectableProjects, ", ") .. ") or Q to cancel:")
+    -- Back/Cancel button
+    gui.createButton("cancel", 2, h - 2, 12, 1, "< Go Back", function()
+        running = false
+    end, colors.red, colors.white)
     
-    local input = read()
-    if input:lower() == "q" then
-        return
-    end
+    -- Management button
+    gui.createButton("manage", w - 14, h - 2, 12, 1, "Manage >>", function()
+        projectManagementMenu()
+        running = false
+    end, colors.orange, colors.white)
     
-    local choice = tonumber(input)
+    gui.drawAllButtons()
     
-    -- Validate selection
-    local isValid = false
-    for _, validChoice in ipairs(selectableProjects) do
-        if choice == validChoice then
-            isValid = true
-            break
+    -- Handle interactions
+    local oldRunning = running
+    running = true
+    while running do
+        local event = {os.pullEvent()}
+        if event[1] == "mouse_click" then
+            if gui.handleClick(event[3], event[4]) then
+                running = false
+            end
+        elseif event[1] == "mouse_drag" then
+            gui.updateHover(event[3], event[4])
+        elseif event[1] == "key" and event[2] == keys.q then
+            running = false
         end
     end
-    
-    if isValid then
-        local projName = availableProjects[choice]
-        print("")
-        print("Switching to project: " .. projName)
-        
-        local success, err = switchProject(projName)
-        if success then
-            print("Switched successfully!")
-            sleep(1)
-        else
-            print("ERROR: " .. (err or "Unknown error"))
-            print("Press any key to continue...")
-            os.pullEvent("key")
-        end
-    else
-        print("Invalid choice! Project has no turtles or doesn't exist.")
-        print("Press any key to continue...")
-        os.pullEvent("key")
-    end
+    running = oldRunning
 end
 
 -- ========== INPUT HANDLING ==========
 
 local function handleInput()
-    local event, param1, param2, param3 = os.pullEvent()
-    
-    -- Handle mouse clicks
-    if event == "mouse_click" then
-        local button = param1
-        local x = param2
-        local y = param3
-        
-        -- Check for GUI button clicks first
-        local buttonClicked = gui.handleClick(x, y)
-        if buttonClicked then
-            return  -- Button was clicked, done
-        end
-        
-        -- Check if clicking in turtle list area
-        local w, h = term.getSize()
-        local listStart = 4
-        local listHeight = h - 7
-        
-        if y >= listStart and y < listStart + listHeight then
-            -- Calculate which turtle was clicked
-            local idx = (y - listStart + 1) + scrollOffset
-            
-            -- Get sorted turtle list
-            local turtleList = {}
-            for id, turtle in pairs(turtles) do
-                table.insert(turtleList, {id = id, data = turtle})
-            end
-            table.sort(turtleList, function(a, b) return a.id < b.id end)
-            
-            -- Select/deselect turtle
-            if turtleList[idx] then
-                local clickedID = turtleList[idx].id
-                if selectedTurtle == clickedID then
-                    selectedTurtle = nil  -- Deselect if clicking same turtle
-                else
-                    selectedTurtle = clickedID  -- Select new turtle
-                end
-            end
-        end
-        return
-    end
-    
-    -- Handle mouse movement for hover effects
-    if event == "mouse_move" or event == "mouse_drag" then
-        local x = param1
-        local y = param2
-        gui.updateHover(x, y)
-        return
-    end
+    local event, param1 = os.pullEvent()
     
     -- Handle keyboard input (kept for power users)
     if event ~= "key" then
@@ -1027,8 +1021,8 @@ local function mainLoop()
         -- Pull any event without filtering
         local event = {os.pullEvent()}
         
-        if event[1] == "key" or event[1] == "mouse_click" or event[1] == "char" then
-            -- Handle input in a separate call to avoid blocking
+        if event[1] == "key" or event[1] == "char" then
+            -- Handle keyboard input
             parallel.waitForAny(
                 function()
                     handleInput()
@@ -1037,6 +1031,43 @@ local function mainLoop()
                     sleep(0.1)
                 end
             )
+        elseif event[1] == "mouse_click" then
+            -- Handle mouse clicks directly (don't use parallel to avoid blocking)
+            local x = event[3]
+            local y = event[4]
+            
+            -- Check for GUI button clicks first
+            local buttonClicked = gui.handleClick(x, y)
+            if not buttonClicked then
+                -- Not a button, check turtle list clicks
+                local w, h = term.getSize()
+                local listStart = 4
+                local listHeight = h - 7
+                
+                if y >= listStart and y < listStart + listHeight then
+                    local idx = (y - listStart + 1) + scrollOffset
+                    
+                    local turtleList = {}
+                    for id, turtle in pairs(turtles) do
+                        table.insert(turtleList, {id = id, data = turtle})
+                    end
+                    table.sort(turtleList, function(a, b) return a.id < b.id end)
+                    
+                    if turtleList[idx] then
+                        local clickedID = turtleList[idx].id
+                        if selectedTurtle == clickedID then
+                            selectedTurtle = nil
+                        else
+                            selectedTurtle = clickedID
+                        end
+                    end
+                end
+            end
+        elseif event[1] == "mouse_drag" then
+            -- Handle hover for buttons
+            local x = event[3]
+            local y = event[4]
+            gui.updateHover(x, y)
         elseif event[1] == "modem_message" then
             -- Process the message we just received
             local side, channel, replyChannel, message, distance = event[2], event[3], event[4], event[5], event[6]
