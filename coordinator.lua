@@ -19,7 +19,8 @@ coordinator.lastHeartbeats = {}  -- Timestamp of last heartbeat per turtle
 
 function coordinator.init()
     coordinator.generateWorkQueue()
-    print("Coordinator initialized with " .. #coordinator.workQueue .. " tunnel assignments")
+    -- Silent init for GUI mode
+    -- print("Coordinator initialized with " .. #coordinator.workQueue .. " tunnel assignments")
 end
 
 function coordinator.generateWorkQueue()
@@ -75,7 +76,8 @@ function coordinator.registerTurtle(turtleID, label, fuelLevel)
     
     coordinator.lastHeartbeats[turtleID] = os.epoch("utc")
     
-    print("Registered turtle: " .. label .. " (ID: " .. turtleID .. ")")
+    -- Silent for GUI mode
+    -- print("Registered turtle: " .. label .. " (ID: " .. turtleID .. ")")
     return true
 end
 
@@ -89,7 +91,8 @@ function coordinator.unregisterTurtle(turtleID)
     coordinator.activeTurtles[turtleID] = nil
     coordinator.lastHeartbeats[turtleID] = nil
     
-    print("Unregistered turtle ID: " .. turtleID)
+    -- Silent for GUI mode
+    -- print("Unregistered turtle ID: " .. turtleID)
 end
 
 -- ========== WORK ASSIGNMENT ==========
@@ -111,7 +114,8 @@ function coordinator.claimTunnel(turtleID)
                 coordinator.activeTurtles[turtleID].status = "mining"
             end
             
-            print("Assigned " .. assignment.id .. " to turtle " .. turtleID)
+            -- Silent for GUI mode
+            -- print("Assigned " .. assignment.id .. " to turtle " .. turtleID)
             return assignment
         end
     end
@@ -128,7 +132,8 @@ function coordinator.releaseWork(assignmentID)
         assignment.startedAt = nil
         
         coordinator.assignedWork[assignmentID] = nil
-        print("Released work: " .. assignmentID)
+        -- Silent for GUI mode
+        -- print("Released work: " .. assignmentID)
     end
 end
 
@@ -159,7 +164,8 @@ function coordinator.completeTunnel(assignmentID, blocksMined, oresFound)
             coordinator.activeTurtles[assignment.assignedTo].status = "idle"
         end
         
-        print("Completed: " .. assignmentID .. " (" .. blocksMined .. " blocks, " .. oresFound .. " ores)")
+        -- Silent for GUI mode
+        -- print("Completed: " .. assignmentID .. " (" .. blocksMined .. " blocks, " .. oresFound .. " ores)")
         return true
     end
     
@@ -192,7 +198,8 @@ function coordinator.checkStaleHeartbeats()
         
         if ageSeconds > config.OFFLINE_THRESHOLD then
             -- Turtle is offline
-            print("Turtle " .. turtleID .. " is offline (no heartbeat for " .. ageSeconds .. "s)")
+            -- Silent for GUI mode
+            -- print("Turtle " .. turtleID .. " is offline (no heartbeat for " .. ageSeconds .. "s)")
             table.insert(stalled, turtleID)
         end
     end
@@ -206,7 +213,8 @@ end
 function coordinator.handleStalledTurtle(turtleID)
     local turtle = coordinator.activeTurtles[turtleID]
     if turtle and turtle.assignedWork then
-        print("Releasing work from stalled turtle " .. turtleID)
+        -- Silent for GUI mode
+        -- print("Releasing work from stalled turtle " .. turtleID)
         coordinator.releaseWork(turtle.assignedWork)
     end
     

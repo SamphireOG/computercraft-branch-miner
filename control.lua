@@ -616,8 +616,8 @@ end
 
 local function drawTurtleList()
     local w, h = term.getSize()
-    local listStart = 4
-    local listHeight = h - 8  -- Leave room for header and 3-row controls
+    local listStart = 5  -- Changed from 4 to 5 to make room for coordinator badge
+    local listHeight = h - 9  -- Leave room for header, coordinator badge, and 3-row controls
     
     -- List header with fancy colors and icons
     term.setCursorPos(1, listStart - 1)
