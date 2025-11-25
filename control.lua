@@ -736,6 +736,11 @@ local function checkForMessages()
         local turtleID = message.sender
         local data = message.data or {}
         
+        -- DEBUG: Show what we're comparing
+        term.setCursorPos(1, 1)
+        term.clearLine()
+        term.write("Type:" .. tostring(msgType) .. " Want:" .. tostring(protocol.MSG_TYPES.HEARTBEAT) .. " Match:" .. tostring(msgType == protocol.MSG_TYPES.HEARTBEAT))
+        
         if msgType == protocol.MSG_TYPES.HEARTBEAT then
             -- Update turtle status from heartbeat
             if not turtles[turtleID] then
@@ -753,6 +758,11 @@ local function checkForMessages()
                 lastSeen = os.epoch("utc"),
                 currentTask = data.currentTask or "Idle"
             }
+            
+            -- DEBUG: Confirm update
+            term.setCursorPos(1, 2)
+            term.clearLine()
+            term.write("UPDATED! ID:" .. turtleID .. " Status:" .. (data.status or "idle"))
         end
     end
 end
