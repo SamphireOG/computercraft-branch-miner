@@ -566,13 +566,11 @@ local function drawHeader()
     term.setCursorPos(math.floor((w - #title) / 2), 1)
     term.write(title)
     
-    -- Settings gear icon in top right corner (absolute position)
-    term.setCursorPos(w - 1, 1)
-    term.setBackgroundColor(colors.lightBlue)
-    term.setTextColor(colors.black)
-    term.write("\15")
-    term.setCursorPos(w, 1)
-    term.write(" ")
+    -- Settings button in top right corner (red gear icon)
+    term.setCursorPos(w - 2, 1)
+    term.setBackgroundColor(colors.red)
+    term.setTextColor(colors.white)
+    term.write(" * ")
     term.setBackgroundColor(colors.blue)
     
     -- Status line
@@ -1419,8 +1417,8 @@ local function mainLoop()
             local y = event[4]
             local w, h = term.getSize()
             
-            -- Check for settings button in header (top right corner)
-            if y == 1 and x >= w - 1 and x <= w then
+            -- Check for settings button in header (top right corner - red gear)
+            if y == 1 and x >= w - 2 and x <= w then
                 showProjectSettings()
                 drawScreen()
                 lastUpdate = os.clock()
