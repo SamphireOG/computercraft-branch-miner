@@ -127,16 +127,34 @@ end
 
 local function createNewProject()
     clearScreen()
-    print("------------------------")
-    print(" CREATE NEW PROJECT")
-    print("------------------------")
-    print("")
+    local w, h = term.getSize()
     
+    -- Fancy header
+    term.setBackgroundColor(colors.lime)
+    term.setTextColor(colors.black)
+    term.setCursorPos(1, 1)
+    term.clearLine()
+    local title = " + CREATE NEW PROJECT + "
+    term.setCursorPos(math.floor((w - #title) / 2), 1)
+    term.write(title)
+    
+    term.setBackgroundColor(colors.black)
+    term.setTextColor(colors.white)
+    
+    term.setCursorPos(2, 3)
     print("Project name:")
+    term.setCursorPos(2, 4)
+    term.setBackgroundColor(colors.gray)
+    term.setTextColor(colors.white)
+    term.write(string.rep(" ", w - 3))
+    term.setCursorPos(2, 4)
     local projectName = read()
     
+    term.setBackgroundColor(colors.black)
+    
     if projectName == "" then
-        print("")
+        term.setCursorPos(2, 6)
+        term.setTextColor(colors.red)
         print("Invalid name!")
         sleep(2)
         return false
@@ -144,21 +162,41 @@ local function createNewProject()
     
     -- Check if exists
     if loadProjectConfig(projectName) then
-        print("")
+        term.setCursorPos(2, 6)
+        term.setTextColor(colors.red)
         print("Project already exists!")
         sleep(2)
         return false
     end
     
-    print("")
+    term.setTextColor(colors.white)
+    term.setCursorPos(2, 6)
     print("Tunnel length [64]:")
+    term.setCursorPos(2, 7)
+    term.setBackgroundColor(colors.gray)
+    term.write(string.rep(" ", w - 3))
+    term.setCursorPos(2, 7)
     local length = tonumber(read()) or 64
     
+    term.setBackgroundColor(colors.black)
+    term.setCursorPos(2, 9)
     print("Layers [3]:")
+    term.setCursorPos(2, 10)
+    term.setBackgroundColor(colors.gray)
+    term.write(string.rep(" ", w - 3))
+    term.setCursorPos(2, 10)
     local layers = tonumber(read()) or 3
     
+    term.setBackgroundColor(colors.black)
+    term.setCursorPos(2, 12)
     print("Start Y [-59]:")
+    term.setCursorPos(2, 13)
+    term.setBackgroundColor(colors.gray)
+    term.write(string.rep(" ", w - 3))
+    term.setCursorPos(2, 13)
     local startY = tonumber(read()) or -59
+    
+    term.setBackgroundColor(colors.black)
     
     local channel = getNextAvailableChannel()
     
@@ -173,8 +211,11 @@ local function createNewProject()
     }
     
     if saveProjectConfig(projectName, projectConfig) then
-        print("")
-        print("Created!")
+        term.setCursorPos(2, 15)
+        term.setTextColor(colors.lime)
+        print("\7 Created!")
+        term.setCursorPos(2, 16)
+        term.setTextColor(colors.cyan)
         print("Channel: " .. channel)
         sleep(2)
         
@@ -182,7 +223,8 @@ local function createNewProject()
         projectServer.createProject(projectName, projectConfig)
         return true
     else
-        print("")
+        term.setCursorPos(2, 15)
+        term.setTextColor(colors.red)
         print("Save failed!")
         sleep(2)
         return false
@@ -191,61 +233,150 @@ end
 
 local function deleteProject()
     clearScreen()
-    print("------------------------")
-    print(" DELETE PROJECT")
-    print("------------------------")
-    print("")
+    local w, h = term.getSize()
+    local selectedProject = nil
+    local deleteRunning = true
+    
+    -- Fancy header
+    term.setBackgroundColor(colors.red)
+    term.setTextColor(colors.white)
+    term.setCursorPos(1, 1)
+    term.clearLine()
+    local title = " - DELETE PROJECT - "
+    term.setCursorPos(math.floor((w - #title) / 2), 1)
+    term.write(title)
+    
+    term.setBackgroundColor(colors.black)
+    term.setTextColor(colors.white)
     
     local projects = listProjects()
     if #projects == 0 then
+        term.setCursorPos(2, 3)
+        term.setTextColor(colors.orange)
         print("No projects to delete!")
         sleep(2)
         return false
     end
     
-    print("Projects:")
+    term.setCursorPos(2, 3)
+    print("Click a project to delete:")
+    
+    -- Clear buttons
+    gui.clearButtons()
+    
+    -- Draw project buttons
+    local startY = 5
     for i, proj in ipairs(projects) do
-        print(string.format(" %d. %s", i, proj))
+        if startY + (i-1) * 2 >= h - 4 then
+            break  -- Don't overflow screen
+        end
+        
+        gui.createButton("del_proj_" .. i, 2, startY + (i-1) * 2, w - 4, 2, "", function()
+            selectedProject = proj
+        end, colors.gray, colors.white)
+        
+        term.setCursorPos(3, startY + (i-1) * 2)
+        term.setBackgroundColor(colors.gray)
+        term.setTextColor(colors.white)
+        term.write(" " .. proj)
     end
-    print("")
     
-    print("Delete which? (0=cancel)")
-    local choice = tonumber(read())
+    -- Cancel button
+    gui.createButton("cancel_del", 2, h - 2, w - 4, 1, "< CANCEL", function()
+        deleteRunning = false
+    end, colors.lime, colors.black)
     
-    if not choice or choice == 0 then
+    gui.drawAllButtons()
+    
+    -- Handle selection
+    while deleteRunning and not selectedProject do
+        local event = {os.pullEvent()}
+        if event[1] == "mouse_click" then
+            gui.handleClick(event[3], event[4])
+        elseif event[1] == "mouse_drag" then
+            gui.updateHover(event[3], event[4])
+        elseif event[1] == "key" and event[2] == keys.q then
+            return false
+        end
+    end
+    
+    if not deleteRunning then
         return false
     end
     
-    if choice < 1 or choice > #projects then
-        print("")
-        print("Invalid choice!")
+    -- Confirmation screen
+    clearScreen()
+    term.setBackgroundColor(colors.red)
+    term.setTextColor(colors.white)
+    term.setCursorPos(1, 1)
+    term.clearLine()
+    term.setCursorPos(math.floor((w - #title) / 2), 1)
+    term.write(title)
+    
+    term.setBackgroundColor(colors.black)
+    term.setCursorPos(2, 3)
+    term.setTextColor(colors.orange)
+    print("WARNING!")
+    term.setTextColor(colors.white)
+    term.setCursorPos(2, 5)
+    print("Delete this project?")
+    term.setCursorPos(2, 6)
+    term.setTextColor(colors.yellow)
+    print(" '" .. selectedProject .. "'")
+    term.setTextColor(colors.white)
+    
+    gui.clearButtons()
+    
+    -- Confirm button
+    gui.createButton("confirm_del", 2, h - 5, w - 4, 2, "", function()
+        -- Delete project file
+        local filename = getProjectFilename(selectedProject)
+        if fs.exists(filename) then
+            fs.delete(filename)
+        end
+        
+        -- Show success message
+        clearScreen()
+        term.setBackgroundColor(colors.lime)
+        term.setTextColor(colors.black)
+        term.setCursorPos(1, 1)
+        term.clearLine()
+        term.setCursorPos(math.floor((w - 12) / 2), 1)
+        term.write(" \7 DELETED \7 ")
+        
+        term.setBackgroundColor(colors.black)
+        term.setTextColor(colors.lime)
+        term.setCursorPos(2, 3)
+        print("Project deleted!")
         sleep(2)
-        return false
+        
+        deleteRunning = false
+    end, colors.red, colors.white)
+    
+    term.setCursorPos(3, h - 4)
+    term.setBackgroundColor(colors.red)
+    term.setTextColor(colors.white)
+    term.write(" YES, DELETE IT")
+    
+    -- Cancel button
+    gui.createButton("cancel_confirm", 2, h - 2, w - 4, 1, "< NO, GO BACK", function()
+        deleteRunning = false
+    end, colors.gray, colors.white)
+    
+    gui.drawAllButtons()
+    
+    -- Handle confirmation
+    while deleteRunning do
+        local event = {os.pullEvent()}
+        if event[1] == "mouse_click" then
+            gui.handleClick(event[3], event[4])
+        elseif event[1] == "mouse_drag" then
+            gui.updateHover(event[3], event[4])
+        elseif event[1] == "key" and event[2] == keys.q then
+            return false
+        end
     end
     
-    local projectName = projects[choice]
-    
-    print("")
-    print("Delete '" .. projectName .. "'?")
-    print("Type YES to confirm:")
-    local confirm = read()
-    
-    if confirm ~= "YES" then
-        print("")
-        print("Cancelled.")
-        sleep(1)
-        return false
-    end
-    
-    -- Delete project file
-    local filename = getProjectFilename(projectName)
-    if fs.exists(filename) then
-        fs.delete(filename)
-    end
-    
-    print("")
-    print("Project deleted!")
-    sleep(2)
     return true
 end
 
