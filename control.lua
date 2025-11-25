@@ -563,7 +563,7 @@ local function drawHeader()
     
     -- Draw title starting from left
     local title = "\7 BRANCH MINER CONTROL "
-    term.setCursorPos(1, 1)
+    term.setCursorPos(3, 1)
     term.write(title)
     
     -- Settings button in top right corner (single red square with # icon)
