@@ -1392,8 +1392,12 @@ local function mainLoop()
                     
                 elseif msgType == protocol.MSG_TYPES.CLAIM_TUNNEL then
                     pcall(function()
+                        local w, h = term.getSize()
+                        local debugY = h  -- Bottom line, below buttons
+                        
                         -- Debug: Log work request
-                        term.setCursorPos(1, 2)
+                        term.setCursorPos(1, debugY)
+                        term.setBackgroundColor(colors.black)
                         term.clearLine()
                         term.setTextColor(colors.yellow)
                         term.write("Work requested by turtle " .. tostring(turtleID))
@@ -1405,17 +1409,20 @@ local function mainLoop()
                             }, turtleID)
                             
                             -- Debug: Log assignment
-                            term.setCursorPos(1, 2)
+                            term.setCursorPos(1, debugY)
+                            term.setBackgroundColor(colors.lime)
                             term.clearLine()
-                            term.setTextColor(colors.lime)
-                            term.write("Assigned " .. assignment.id .. " to turtle " .. tostring(turtleID))
+                            term.setTextColor(colors.black)
+                            term.write(" Assigned " .. assignment.id .. " to turtle " .. tostring(turtleID) .. " ")
                         else
                             -- Debug: No work available
-                            term.setCursorPos(1, 2)
+                            term.setCursorPos(1, debugY)
+                            term.setBackgroundColor(colors.red)
                             term.clearLine()
-                            term.setTextColor(colors.red)
-                            term.write("No work available for turtle " .. tostring(turtleID))
+                            term.setTextColor(colors.white)
+                            term.write(" No work available for turtle " .. tostring(turtleID) .. " ")
                         end
+                        term.setBackgroundColor(colors.black)
                     end)
                     
                 elseif msgType == protocol.MSG_TYPES.TUNNEL_COMPLETE then
