@@ -1009,15 +1009,8 @@ local function handleInput()
             sendCommand(protocol.MSG_TYPES.CMD_RETURN_BASE, selectedTurtle)
             
         elseif key == keys.s then
-            -- Confirm shutdown
-            term.setCursorPos(1, 1)
-            term.setTextColor(colorScheme.error)
-            term.write("Shutdown turtle " .. selectedTurtle .. "? (Y/N)")
-            
-            local confirm = os.pullEvent("char")
-            if confirm == "y" or confirm == "Y" then
-                sendCommand(protocol.MSG_TYPES.CMD_SHUTDOWN, selectedTurtle)
-            end
+            -- Shutdown command - just send it (button has confirmation built in)
+            sendCommand(protocol.MSG_TYPES.CMD_SHUTDOWN, selectedTurtle)
             
         elseif key == keys.x then
             -- Remove turtle
@@ -1032,19 +1025,10 @@ local function checkForMessages()
     -- Check for modem messages from turtles
     local event, side, channel, replyChannel, message, distance = os.pullEvent("modem_message")
     
-    -- DEBUG: Log ALL messages
-    print("MSG: Ch" .. channel .. " (want:" .. config.MODEM_CHANNEL .. ") Type:" .. tostring(type(message)))
-    
     if channel == config.MODEM_CHANNEL and type(message) == "table" then
         local msgType = message.type
         local turtleID = message.sender
         local data = message.data or {}
-        
-        -- DEBUG: Log received heartbeat
-        print("MATCHED! Type:" .. tostring(msgType) .. " From:" .. tostring(turtleID))
-        if msgType == protocol.MSG_TYPES.HEARTBEAT then
-            print("HEARTBEAT from " .. turtleID .. " status:" .. tostring(data.status))
-        end
         
         if msgType == protocol.MSG_TYPES.HEARTBEAT then
             -- Update turtle status from heartbeat
@@ -1118,69 +1102,25 @@ local function cleanupOffline()
 end
 
 local function removeTurtle(turtleID)
-    -- Get turtle info for confirmation
+    -- Get turtle info
     local turtle = turtles[turtleID]
     if not turtle then
         return
     end
     
-    -- Show confirmation prompt
-    clearScreen()
-    term.setCursorPos(1, 1)
-    term.setTextColor(colorScheme.error)
-    term.write("REMOVE TURTLE?")
+    -- Remove immediately (button click is the confirmation)
+    -- Remove from local table
+    turtles[turtleID] = nil
     
-    term.setCursorPos(1, 3)
-    term.setTextColor(colorScheme.text)
-    term.write("ID: " .. turtleID)
-    
-    term.setCursorPos(1, 4)
-    term.write("Label: " .. (turtle.label or "Unknown"))
-    
-    term.setCursorPos(1, 5)
-    term.write("Status: " .. (turtle.status or "Unknown"))
-    
-    term.setCursorPos(1, 7)
-    term.setTextColor(colorScheme.warning)
-    term.write("This will permanently")
-    
-    term.setCursorPos(1, 8)
-    term.write("remove this turtle from")
-    
-    term.setCursorPos(1, 9)
-    term.write("the project.")
-    
-    term.setCursorPos(1, 11)
-    term.setTextColor(colorScheme.text)
-    term.write("Continue? (Y/N)")
-    
-    -- Wait for confirmation
-    local confirm = os.pullEvent("char")
-    
-    if confirm == "y" or confirm == "Y" then
-        -- Remove from local table
-        turtles[turtleID] = nil
-        
-        -- Remove from project server
-        if currentProject then
-            projectServer.removeTurtle(currentProject.name, turtleID)
-        end
-        
-        -- Clear selection
-        selectedTurtle = nil
-        
-        -- Show success
-        term.setCursorPos(1, 13)
-        term.setTextColor(colorScheme.active)
-        term.write("Turtle removed!")
-        sleep(1)
-    else
-        -- Cancelled
-        term.setCursorPos(1, 13)
-        term.setTextColor(colorScheme.text)
-        term.write("Cancelled")
-        sleep(0.5)
+    -- Remove from project server
+    if currentProject then
+        projectServer.removeTurtle(currentProject.name, turtleID)
     end
+    
+    -- Clear selection
+    selectedTurtle = nil
+    
+    -- UI will update automatically on next refresh
 end
 
 -- ========== MAIN LOOP ==========
@@ -1223,7 +1163,11 @@ local function mainLoop()
             
             -- Check for GUI button clicks first
             local buttonClicked = gui.handleClick(x, y)
-            if not buttonClicked then
+            if buttonClicked then
+                -- Force immediate redraw after button click
+                drawScreen()
+                lastUpdate = os.clock()
+            else
                 -- Not a button, check turtle list clicks
                 local w, h = term.getSize()
                 local listStart = 4
@@ -1245,6 +1189,9 @@ local function mainLoop()
                         else
                             selectedTurtle = clickedID
                         end
+                        -- Force immediate redraw after selection change
+                        drawScreen()
+                        lastUpdate = os.clock()
                     end
                 end
             end
@@ -1253,6 +1200,9 @@ local function mainLoop()
             local x = event[3]
             local y = event[4]
             gui.updateHover(x, y)
+            -- Force immediate redraw for hover effects
+            drawScreen()
+            lastUpdate = os.clock()
         elseif event[1] == "modem_message" then
             -- Process the message we just received
             local side, channel, replyChannel, message, distance = event[2], event[3], event[4], event[5], event[6]
