@@ -362,72 +362,27 @@ local function main()
     end
     
     print("")
+    print("Cleaning old files...")
     
-    -- Check for local files
-    local hasLocalFiles = true
+    -- Always delete old files first
     local fileList = (deviceType == "turtle") and FILES.turtle or FILES.controller
     
     for _, filename in ipairs(fileList) do
-        if not fs.exists(filename) then
-            hasLocalFiles = false
-            break
+        if fs.exists(filename) then
+            fs.delete(filename)
+            print("Deleted: " .. filename)
         end
     end
     
-    if hasLocalFiles then
-        print("Found local installation files.")
+    print("")
+    print("Downloading from GitHub...")
+    
+    -- Always download fresh files
+    if not downloadFromGitHub(fileList) then
         print("")
-        print("Installation options:")
-        print("1. Use local files")
-        print("2. Re-download from GitHub")
-        print("")
-        print("Enter choice (1 or 2):")
-        local choice = read()
-        
-        if choice ~= "1" then
-            -- Delete old files and re-download
-            print("")
-            print("Removing old files...")
-            for _, filename in ipairs(fileList) do
-                if fs.exists(filename) then
-                    fs.delete(filename)
-                end
-            end
-            
-            if not downloadFromGitHub(fileList) then
-                print("")
-                print("GitHub download failed!")
-                return
-            end
-        else
-            print("")
-            print("Using local files...")
-        end
-    else
-        print("Installation files not found locally.")
-        print("")
-        print("Download options:")
-        print("1. Download from GitHub (automatic)")
-        print("2. Manual installation")
-        print("")
-        print("Enter choice (1 or 2):")
-        local choice = read()
-        
-        if choice == "1" then
-            -- Download from GitHub
-            if not downloadFromGitHub(fileList) then
-                print("")
-                print("GitHub download failed!")
-                print("Try option 2 (manual installation)")
-                return
-            end
-        else
-            -- Manual installation
-            if not manualInstall(deviceType) then
-                print("Installation failed!")
-                return
-            end
-        end
+        print("ERROR: GitHub download failed!")
+        print("Check internet connection")
+        return
     end
     
     -- Project-based configuration
