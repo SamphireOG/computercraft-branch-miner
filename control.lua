@@ -788,9 +788,18 @@ end
 -- ========== NETWORK FUNCTIONS ==========
 
 function sendCommand(cmd, targetID)
-    -- Send command without blocking UI
-    protocol.sendWithRetry(cmd, {}, targetID, true)
-    -- Response will be handled automatically by message processing
+    -- Send command without blocking UI - don't wait for ACK
+    protocol.send(cmd, {}, targetID)
+    
+    -- Show brief non-blocking feedback in header
+    local w, h = term.getSize()
+    term.setCursorPos(1, 2)
+    term.setBackgroundColor(colors.black)
+    term.setTextColor(colors.lime)
+    local targetStr = targetID and ("T:" .. targetID) or "ALL"
+    local cmdStr = cmd:gsub("CMD_", "")
+    term.write("  \16 " .. cmdStr .. " -> " .. targetStr .. "     ")
+    -- Don't block - the message will get overwritten on next screen update
 end
 
 local function updateTurtleData(msg)
