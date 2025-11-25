@@ -569,9 +569,10 @@ local function drawHeader()
     -- Settings button in top right corner (red square with # icon)
     term.setCursorPos(w - 1, 1)
     term.setBackgroundColor(colors.red)
+    term.write(" ")
+    term.setCursorPos(w, 1)
     term.setTextColor(colors.white)
     term.write("#")
-    term.setCursorPos(w + 1, 1)
     
     -- Status line
     term.setCursorPos(1, 2)
