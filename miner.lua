@@ -39,6 +39,13 @@ local function initializeMiner()
         print("Channel: " .. assignment.channel)
         print("")
         
+        -- Close old modem connection and switch to project channel
+        protocol.close()
+        config.MODEM_CHANNEL = assignment.channel
+        protocol.init()
+        print("Switched to channel: " .. config.MODEM_CHANNEL)
+        print("")
+        
         -- Reconnect to project
         local success, err = projectClient.reconnect()
         if not success then
@@ -46,9 +53,6 @@ local function initializeMiner()
             print(err)
         else
             print("Reconnected successfully!")
-            
-            -- Update config channel
-            config.MODEM_CHANNEL = assignment.channel
         end
         print("")
     else
