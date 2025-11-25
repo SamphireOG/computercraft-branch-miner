@@ -289,6 +289,8 @@ local scrollOffset = 0
 local running = true
 local lastUpdate = 0
 local showProjectSelector = false
+local lastMessageTime = 0  -- Track when last message received
+local messageCount = 0  -- Count messages received
 
 -- ========== SCREEN HELPERS (continued) ==========
 
@@ -338,7 +340,7 @@ local function drawHeader()
     term.setCursorPos(1, 3)
     term.clearLine()
     
-    local status = "Turtles: " .. activeCount .. " active"
+    local status = "Turtles: " .. activeCount .. " active | Msgs:" .. messageCount
     if miningCount > 0 then
         status = status .. ", " .. miningCount .. " mining"
     end
@@ -907,6 +909,9 @@ end
 local function mainLoop()
     local lastOfflineCheck = 0
     
+    print("Main loop active!")
+    sleep(1)
+    
     while running do
         -- Update display
         local now = os.clock()
@@ -940,19 +945,16 @@ local function mainLoop()
             -- Process the message we just received
             local side, channel, replyChannel, message, distance = event[2], event[3], event[4], event[5], event[6]
             
-            -- DEBUG: Log ALL messages
-            print("MSG: Ch" .. channel .. " (want:" .. config.MODEM_CHANNEL .. ") Type:" .. tostring(type(message)))
+            -- Track message received
+            lastMessageTime = os.clock()
+            messageCount = messageCount + 1
             
             if channel == config.MODEM_CHANNEL and type(message) == "table" then
                 local msgType = message.type
                 local turtleID = message.sender
                 local data = message.data or {}
                 
-                -- DEBUG: Log received heartbeat
-                print("MATCHED! Type:" .. tostring(msgType) .. " From:" .. tostring(turtleID))
-                
                 if msgType == protocol.MSG_TYPES.HEARTBEAT then
-                    print("HEARTBEAT from " .. turtleID .. " status:" .. tostring(data.status))
                     
                     -- Update turtle status from heartbeat
                     if not turtles[turtleID] then
@@ -1270,20 +1272,9 @@ local function init()
     -- Request initial status from all turtles
     requestAllStatus()
     
-    -- DEBUG: Test if modem receives ANYTHING
     print("")
-    print("Testing modem reception...")
-    print("Waiting 5 seconds for messages...")
-    local testStart = os.clock()
-    while os.clock() - testStart < 5 do
-        local event, side, channel, replyChannel, message, distance = os.pullEvent()
-        if event == "modem_message" then
-            print("RAW MSG RECEIVED! Ch:" .. channel)
-            break
-        end
-    end
-    print("Test complete.")
-    sleep(2)
+    print("Starting main loop...")
+    sleep(1)
     
     return true
 end
