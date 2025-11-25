@@ -818,14 +818,33 @@ local function init()
     if #selectableProjects == 0 then
         print("No active projects!")
         print("")
-        print("1. Wait for turtles")
+        print("1. Pair turtle")
         print("2. Manage projects")
         print("3. Exit")
         print("")
         print("Choice:")
         local choice = read()
         
-        if choice == "2" then
+        if choice == "1" then
+            -- Manual pairing mode
+            print("")
+            print("Broadcasting...")
+            print("Run installer on turtle now!")
+            print("")
+            
+            -- Broadcast for 30 seconds
+            for i = 1, 30 do
+                projectServer.broadcastProjects()
+                sleep(1)
+                term.write(".")
+            end
+            
+            print("")
+            print("")
+            print("Pairing window closed.")
+            sleep(2)
+            return false -- Return to restart
+        elseif choice == "2" then
             projectManagementMenu()
             return false -- Return to restart
         else

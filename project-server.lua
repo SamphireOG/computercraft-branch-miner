@@ -255,32 +255,17 @@ function server.update()
 end
 
 -- Background server that runs alongside controller
+-- Only handles incoming messages (no auto-broadcast)
+-- Use manual pairing via "Pair turtle" button
 function server.runBackground()
     server.init()
     
-    -- Broadcast projects periodically
-    local lastBroadcast = 0
-    local BROADCAST_INTERVAL = 5  -- seconds
-    
     while server.isRunning do
-        -- Broadcast projects every 5 seconds
-        local now = os.clock()
-        if now - lastBroadcast > BROADCAST_INTERVAL then
-            server.broadcastProjects()
-            lastBroadcast = now
-        end
+        -- Handle incoming messages (non-blocking)
+        local event, side, channel, replyChannel, message, distance = os.pullEvent("modem_message")
         
-        -- Handle incoming messages (with timeout)
-        local ok, err = pcall(function()
-            os.pullEvent("modem_message")
-        end)
-        
-        if ok then
-            -- Process the message
-            local event, side, channel, replyChannel, message, distance = os.pullEvent()
-            if channel == DISCOVERY_CHANNEL and type(message) == "table" then
-                server.handleMessage(message)
-            end
+        if channel == DISCOVERY_CHANNEL and type(message) == "table" then
+            server.handleMessage(message)
         end
         
         sleep(0.1)
