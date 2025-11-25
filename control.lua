@@ -4,6 +4,7 @@
 local config = require("config")
 local protocol = require("protocol")
 local projectServer = require("project-server")
+local coordinator = require("coordinator")
 local gui = require("gui")
 
 -- ========== PROJECT MANAGEMENT ==========
@@ -60,6 +61,11 @@ local function switchProject(projectName)
     
     -- Reinitialize protocol with new channel
     protocol.init()
+    
+    -- Initialize coordinator for work distribution
+    coordinator.init()
+    print("Coordinator initialized (running on this pocket PC)")
+    sleep(0.5)
     
     -- Also keep discovery channel open for pairing
     if protocol.modem then
@@ -566,6 +572,14 @@ local function drawHeader()
     term.setBackgroundColor(colors.cyan)
     term.setTextColor(colors.black)
     term.write(" " .. config.MODEM_CHANNEL .. " ")
+    term.setBackgroundColor(colorScheme.background)
+    
+    -- Coordinator badge
+    term.setTextColor(colorScheme.idle)
+    term.write(" ")
+    term.setBackgroundColor(colors.lime)
+    term.setTextColor(colors.black)
+    term.write(" \15 COORD ")
     term.setBackgroundColor(colorScheme.background)
     
     term.setCursorPos(1, 3)
@@ -1156,6 +1170,7 @@ end
 
 local function mainLoop()
     local lastOfflineCheck = 0
+    local lastCoordinatorSave = 0
     
     while running do
         -- Wrap everything in error handler
@@ -1213,6 +1228,20 @@ local function mainLoop()
             term.setTextColor(colors.gray)
             print("Press any key to continue...")
             os.pullEvent("key")
+        end
+        
+        -- Save coordinator state every 30 seconds
+        success, err = pcall(function()
+            local nowEpoch = os.epoch("utc")
+            if nowEpoch - lastCoordinatorSave > 30000 then
+                coordinator.save()
+                lastCoordinatorSave = nowEpoch
+            end
+        end)
+        
+        if not success then
+            -- Coordinator save errors are non-critical, just log them silently
+            -- (Don't interrupt user experience)
         end
         
         -- Pull any event without filtering
@@ -1735,7 +1764,7 @@ local function main()
         sleep(0.5)
     end
     
-    -- Run controller and project server in parallel
+    -- Run controller, project server, and coordinator in parallel
     local success, err = pcall(function()
         parallel.waitForAny(
             mainLoop,
@@ -1743,6 +1772,48 @@ local function main()
                 -- Project server background loop
                 while running do
                     projectServer.update()
+                end
+            end,
+            function()
+                -- Coordinator message handler loop
+                while running do
+                    local event, side, channel, replyChannel, message, distance = os.pullEvent("modem_message")
+                    
+                    if channel == config.MODEM_CHANNEL and type(message) == "table" then
+                        local msgType = message.type
+                        local data = message.data or {}
+                        local turtleID = message.senderId
+                        
+                        -- Handle coordinator-specific messages
+                        if msgType == protocol.MSG_TYPES.REGISTER then
+                            coordinator.registerTurtle(turtleID, data.label, data.fuelLevel)
+                            
+                        elseif msgType == protocol.MSG_TYPES.CLAIM_TUNNEL then
+                            local assignment = coordinator.claimTunnel(turtleID)
+                            if assignment then
+                                -- Send tunnel assignment back to turtle
+                                protocol.send(protocol.MSG_TYPES.TUNNEL_ASSIGNED, {
+                                    assignment = assignment
+                                }, turtleID)
+                            end
+                            
+                        elseif msgType == protocol.MSG_TYPES.TUNNEL_COMPLETE then
+                            coordinator.completeTunnel(data.assignmentID, data.blocksMined, data.oresFound)
+                            
+                        elseif msgType == protocol.MSG_TYPES.HEARTBEAT then
+                            -- Update coordinator's heartbeat tracking
+                            coordinator.updateHeartbeat(
+                                turtleID,
+                                data.status,
+                                data.position,
+                                data.fuel,
+                                data.inventory,
+                                data.currentTask
+                            )
+                        end
+                    end
+                    
+                    sleep(0)  -- Yield to prevent blocking
                 end
             end
         )
