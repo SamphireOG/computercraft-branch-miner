@@ -735,15 +735,86 @@ local function checkForMessages()
     end
 end
 
+-- ========== OFFLINE DETECTION ==========
+
+local function checkOfflineTurtles()
+    local now = os.epoch("utc")
+    local offlineThreshold = 30000 -- 30 seconds in milliseconds
+    
+    for turtleID, turtle in pairs(turtles) do
+        local timeSinceLastSeen = now - (turtle.lastSeen or 0)
+        
+        if timeSinceLastSeen > offlineThreshold then
+            -- Mark as offline
+            if turtle.status ~= "offline" then
+                turtle.status = "offline"
+                turtle.currentTask = "Offline - no heartbeat"
+            end
+        end
+    end
+end
+
+local function cleanupOffline()
+    local now = os.epoch("utc")
+    local removeThreshold = 300000 -- 5 minutes in milliseconds
+    local removed = 0
+    
+    -- Find and remove very old offline turtles
+    local toRemove = {}
+    for turtleID, turtle in pairs(turtles) do
+        local timeSinceLastSeen = now - (turtle.lastSeen or 0)
+        
+        if turtle.status == "offline" and timeSinceLastSeen > removeThreshold then
+            table.insert(toRemove, turtleID)
+        end
+    end
+    
+    -- Remove them
+    for _, turtleID in ipairs(toRemove) do
+        turtles[turtleID] = nil
+        
+        -- Also remove from project server assignments
+        if currentProject then
+            projectServer.removeTurtle(currentProject.name, turtleID)
+        end
+        
+        removed = removed + 1
+    end
+    
+    -- Show result
+    if removed > 0 then
+        term.setCursorPos(1, 1)
+        term.setTextColor(colorScheme.active)
+        term.setBackgroundColor(colorScheme.background)
+        term.write("Removed " .. removed .. " offline turtle(s)")
+        sleep(1)
+    else
+        term.setCursorPos(1, 1)
+        term.setTextColor(colorScheme.text)
+        term.setBackgroundColor(colorScheme.background)
+        term.write("No offline turtles to remove")
+        sleep(1)
+    end
+end
+
 -- ========== MAIN LOOP ==========
 
 local function mainLoop()
+    local lastOfflineCheck = 0
+    
     while running do
         -- Update display
         local now = os.clock()
         if now - lastUpdate > 2 then
             drawScreen()
             lastUpdate = now
+        end
+        
+        -- Check for offline turtles every 10 seconds
+        local nowEpoch = os.epoch("utc")
+        if nowEpoch - lastOfflineCheck > 10000 then
+            checkOfflineTurtles()
+            lastOfflineCheck = nowEpoch
         end
         
         -- Handle events
@@ -1018,19 +1089,19 @@ local function init()
     print("Loading " .. currentProject.name .. "...")
     sleep(0.5)
     
-    -- Load turtles from assignments
+    -- Load turtles from assignments (initially marked offline)
     local assignments = projectServer.assignments[currentProject.name] or {}
     for turtleID, info in pairs(assignments) do
         turtles[turtleID] = {
             id = turtleID,
             label = info.label or ("Turtle-" .. turtleID),
-            status = "idle",
+            status = "offline",
             position = {x = 0, y = 0, z = 0},
             fuel = 0,
             fuelPercent = 0,
             inventory = 0,
-            lastSeen = info.lastSeen or os.epoch("utc"),
-            currentTask = "Offline - waiting for heartbeat"
+            lastSeen = info.lastSeen or 0,  -- Old timestamp so they show as offline
+            currentTask = "Waiting for heartbeat..."
         }
     end
     

@@ -108,6 +108,17 @@ function server.addTurtle(projectName, turtleID, turtleLabel)
     return true
 end
 
+function server.removeTurtle(projectName, turtleID)
+    -- Remove turtle from project assignments
+    if not server.assignments[projectName] then
+        return false
+    end
+    
+    server.assignments[projectName][turtleID] = nil
+    server.saveAssignments()
+    return true
+end
+
 function server.getTurtleCount(projectName)
     if not server.assignments[projectName] then
         return 0
