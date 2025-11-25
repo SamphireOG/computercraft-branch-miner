@@ -1415,9 +1415,8 @@ local function mainLoop()
                         
                         local assignment = coordinator.claimTunnel(turtleID)
                         if assignment then
-                            protocol.send(protocol.MSG_TYPES.TUNNEL_ASSIGNED, {
-                                assignment = assignment
-                            }, turtleID)
+                            -- Send assignment data directly (not wrapped)
+                            protocol.send(protocol.MSG_TYPES.TUNNEL_ASSIGNED, assignment, turtleID)
                             
                             -- Update debug message
                             lastDebugMessage = "Assigned " .. assignment.id .. " to turtle " .. tostring(turtleID)
