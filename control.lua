@@ -562,7 +562,7 @@ local function drawHeader()
     term.clearLine()
     
     -- Draw title starting from left
-    local title = " \7 BRANCH MINER CONTROL "
+    local title = "\7 BRANCH MINER CONTROL "
     term.setCursorPos(2, 1)
     term.write(title)
     
