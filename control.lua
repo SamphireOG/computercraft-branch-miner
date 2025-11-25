@@ -584,20 +584,18 @@ local function drawHeader()
     term.write(" " .. config.MODEM_CHANNEL .. " ")
     term.setBackgroundColor(colorScheme.background)
     
-    -- Coordinator badge
-    term.setTextColor(colorScheme.idle)
-    term.write(" ")
-    term.setBackgroundColor(colors.lime)
-    term.setTextColor(colors.black)
-    term.write(" \15 COORD ")
-    term.setBackgroundColor(colorScheme.background)
-    
     term.setCursorPos(1, 3)
     term.clearLine()
     
+    -- Coordinator badge (on its own line)
+    term.setBackgroundColor(colors.lime)
+    term.setTextColor(colors.black)
+    term.write(" \15 COORDINATOR ACTIVE ")
+    term.setBackgroundColor(colorScheme.background)
+    
     -- Status with colored indicators
     term.setTextColor(colorScheme.text)
-    term.write("Active: ")
+    term.write("  Active: ")
     term.setTextColor(activeCount > 0 and colors.lime or colors.red)
     term.write(activeCount)
     term.setTextColor(colorScheme.text)
@@ -731,8 +729,15 @@ local function drawControls()
     term.clearLine()
     term.write(string.rep("-", w))
     
-    -- Clear button area
+    -- Clear button registry first
     gui.clearButtons()
+    
+    -- Clear button area completely (all 3 rows) - do this BEFORE creating buttons
+    term.setBackgroundColor(colors.black)
+    for i = 1, 3 do
+        term.setCursorPos(1, controlY + i)
+        term.clearLine()
+    end
     
     local buttonY = controlY + 1
     
@@ -760,8 +765,9 @@ local function drawControls()
             removeTurtle(selectedTurtle)
         end, colors.pink, colors.white)
         
-        gui.createButton("start", 19, buttonY + 1, 8, 1, "Start", function()
-            sendCommand(protocol.MSG_TYPES.CMD_RESUME, selectedTurtle)
+        gui.createButton("start", 19, buttonY + 1, 8, 1, "\16 Start", function()
+            protocol.send(protocol.MSG_TYPES.CMD_RESUME, {}, selectedTurtle)
+            drawScreen()
         end, colors.lime, colors.black)
         
         -- Row 3
@@ -780,12 +786,15 @@ local function drawControls()
         end, colors.lime, colors.black)
         
         -- Row 2
-        gui.createButton("startAll", 1, buttonY + 1, 13, 1, "Start All", function()
-            sendCommand(protocol.MSG_TYPES.CMD_RESUME, nil)
+        gui.createButton("startAll", 1, buttonY + 1, 13, 1, "\16 Start All", function()
+            -- Send CMD_RESUME to all turtles (broadcast)
+            protocol.send(protocol.MSG_TYPES.CMD_RESUME, {}, nil)
+            drawScreen()
         end, colors.lime, colors.black)
         
         gui.createButton("clear", 15, buttonY + 1, 12, 1, "Clear", function()
             cleanupOffline()
+            drawScreen()
         end, colors.gray, colors.white)
         
         -- Row 3
@@ -800,6 +809,10 @@ local function drawControls()
     
     -- Draw all buttons
     gui.drawAllButtons()
+    
+    -- Move cursor off-screen to prevent accidental writes
+    local w, h = term.getSize()
+    term.setCursorPos(1, h)
 end
 
 local function drawScreen()
@@ -807,6 +820,10 @@ local function drawScreen()
     drawHeader()
     drawTurtleList()
     drawControls()
+    
+    -- Final cursor positioning to prevent accidental overwrites
+    local w, h = term.getSize()
+    term.setCursorPos(1, h)
 end
 
 -- ========== NETWORK FUNCTIONS ==========
@@ -815,8 +832,8 @@ function sendCommand(cmd, targetID)
     -- Send command without blocking UI - don't wait for ACK
     protocol.send(cmd, {}, targetID)
     
-    -- Commands send silently - turtles will update their status automatically
-    -- No visual feedback needed since the UI updates every 2 seconds
+    -- Immediate screen redraw to show button press feedback
+    drawScreen()
 end
 
 local function updateTurtleData(msg)
