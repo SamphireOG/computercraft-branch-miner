@@ -480,11 +480,20 @@ local function mineTunnelSection()
     -- Mine a 2-block high section
     local oresFound = 0
     
-    -- Mine top block
-    if utils.isOre("up") then
-        oresFound = oresFound + utils.mineVein("up")
+    -- CRITICAL: Check if we're at home base - DON'T dig up/down if we are!
+    local atHome = (utils.position.x == config.HOME_X and 
+                   utils.position.y == config.HOME_Y and 
+                   utils.position.z == config.HOME_Z)
+    
+    -- Mine top block (SKIP if at home - fuel chest is above!)
+    if not atHome then
+        if utils.isOre("up") then
+            oresFound = oresFound + utils.mineVein("up")
+        else
+            turtle.digUp()
+        end
     else
-        turtle.digUp()
+        print("⚠ Skipping dig UP (at home base)")
     end
     
     -- Mine forward block
@@ -501,7 +510,7 @@ local function mineTunnelSection()
         return false, 0
     end
     
-    -- Mine bottom block (stand on it)
+    -- Mine bottom block (stand on it) - safe to do now (moved away from home)
     if utils.isOre("down") then
         oresFound = oresFound + utils.mineVein("down")
     else
@@ -529,8 +538,18 @@ local function mineTunnel(assignment)
             return false
         end
         
-        if not navigateToTunnelStart(assignment) then
-            return false
+        -- Check if tunnel starts at home base (special case for tunnel 1)
+        local atTunnelStart = (utils.position.x == assignment.startPos.x and
+                              utils.position.y == assignment.startPos.y and
+                              utils.position.z == assignment.startPos.z)
+        
+        if atTunnelStart then
+            print("Already at tunnel start - facing north")
+            utils.turnTo(0)  -- Face north toward mining
+        else
+            if not navigateToTunnelStart(assignment) then
+                return false
+            end
         end
     end
     

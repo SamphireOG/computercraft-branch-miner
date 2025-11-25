@@ -267,6 +267,27 @@ end
 function utils.goToPosition(targetX, targetY, targetZ, useBroadcast)
     useBroadcast = useBroadcast ~= false
     
+    -- Check if we're already at target
+    if utils.position.x == targetX and utils.position.y == targetY and utils.position.z == targetZ then
+        return true  -- Already there!
+    end
+    
+    -- CRITICAL: If both current position and target are at/near home, don't move!
+    -- This prevents breaking supply chests when tunnel starts at home base
+    local currentNearHome = (math.abs(utils.position.x - config.HOME_X) <= 1 and
+                            math.abs(utils.position.y - config.HOME_Y) <= 1 and
+                            math.abs(utils.position.z - config.HOME_Z) <= 1)
+    
+    local targetNearHome = (math.abs(targetX - config.HOME_X) <= 1 and
+                           math.abs(targetY - config.HOME_Y) <= 1 and
+                           math.abs(targetZ - config.HOME_Z) <= 1)
+    
+    if currentNearHome and targetNearHome then
+        print("⚠ Both current and target near home - skipping navigation")
+        print("  (Prevents breaking supply chests)")
+        return true  -- Treat as success, we're close enough
+    end
+    
     -- Move vertically first (safer for collision avoidance)
     while utils.position.y < targetY do
         local success, err = utils.safeUp(useBroadcast)
