@@ -375,7 +375,7 @@ end
 local function drawTurtleList()
     local w, h = term.getSize()
     local listStart = 4
-    local listHeight = h - 7  -- Leave room for header and controls
+    local listHeight = h - 8  -- Leave room for header and 3-row controls
     
     -- List header with fancy colors and icons
     term.setCursorPos(1, listStart - 1)
@@ -478,7 +478,7 @@ end
 
 local function drawControls()
     local w, h = term.getSize()
-    local controlY = h - 3
+    local controlY = h - 4  -- Changed to -4 for 3 rows
     
     -- Draw control panel separator
     term.setCursorPos(1, controlY)
@@ -493,61 +493,65 @@ local function drawControls()
     local buttonY = controlY + 1
     
     if selectedTurtle then
-        -- Turtle-specific controls (ultra-compact for 26-char screen)
-        gui.createButton("pause", 1, buttonY, 6, 1, "Pause", function()
+        -- Turtle-specific controls (3 rows, compact)
+        -- Row 1
+        gui.createButton("pause", 1, buttonY, 8, 1, "Pause", function()
             sendCommand(protocol.MSG_TYPES.CMD_PAUSE, selectedTurtle)
         end, colors.orange, colors.white)
         
-        gui.createButton("resume", 8, buttonY, 7, 1, "Resume", function()
+        gui.createButton("resume", 10, buttonY, 8, 1, "Resume", function()
             sendCommand(protocol.MSG_TYPES.CMD_RESUME, selectedTurtle)
         end, colors.lime, colors.black)
         
-        gui.createButton("home", 16, buttonY, 5, 1, "Home", function()
+        gui.createButton("home", 19, buttonY, 8, 1, "Home", function()
             sendCommand(protocol.MSG_TYPES.CMD_RETURN_BASE, selectedTurtle)
         end, colors.lightBlue, colors.black)
         
-        gui.createButton("deselect", 22, buttonY, 5, 1, "X", function()
-            selectedTurtle = nil
-        end, colors.gray, colors.white)
-        
-        -- Second row
+        -- Row 2
         gui.createButton("shutdown", 1, buttonY + 1, 8, 1, "Shutdown", function()
             sendCommand(protocol.MSG_TYPES.CMD_SHUTDOWN, selectedTurtle)
         end, colors.red, colors.white)
         
-        gui.createButton("remove", 10, buttonY + 1, 7, 1, "Remove", function()
+        gui.createButton("remove", 10, buttonY + 1, 8, 1, "Remove", function()
             removeTurtle(selectedTurtle)
         end, colors.pink, colors.white)
         
-        gui.createButton("refresh", 18, buttonY + 1, 9, 1, "Refresh", function()
+        gui.createButton("refresh", 19, buttonY + 1, 8, 1, "Refresh", function()
             requestAllStatus()
         end, colors.blue, colors.white)
+        
+        -- Row 3
+        gui.createButton("deselect", 1, buttonY + 2, 26, 1, "X Cancel Selection", function()
+            selectedTurtle = nil
+        end, colors.gray, colors.white)
     else
-        -- Global controls (ultra-compact)
-        gui.createButton("pauseAll", 1, buttonY, 9, 1, "Pause All", function()
+        -- Global controls (3 rows)
+        -- Row 1
+        gui.createButton("pauseAll", 1, buttonY, 13, 1, "Pause All", function()
             sendCommand(protocol.MSG_TYPES.CMD_PAUSE, nil)
         end, colors.orange, colors.white)
         
-        gui.createButton("resumeAll", 11, buttonY, 10, 1, "Resume All", function()
+        gui.createButton("resumeAll", 15, buttonY, 12, 1, "Resume All", function()
             sendCommand(protocol.MSG_TYPES.CMD_RESUME, nil)
         end, colors.lime, colors.black)
         
-        gui.createButton("quit", 22, buttonY, 5, 1, "Quit", function()
-            running = false
-        end, colors.red, colors.white)
-        
-        -- Second row
-        gui.createButton("refresh", 1, buttonY + 1, 8, 1, "Refresh", function()
+        -- Row 2
+        gui.createButton("refresh", 1, buttonY + 1, 13, 1, "Refresh", function()
             requestAllStatus()
         end, colors.blue, colors.white)
         
-        gui.createButton("clear", 10, buttonY + 1, 8, 1, "Clear", function()
+        gui.createButton("clear", 15, buttonY + 1, 12, 1, "Clear", function()
             cleanupOffline()
         end, colors.gray, colors.white)
         
-        gui.createButton("projects", 19, buttonY + 1, 8, 1, "Projects", function()
+        -- Row 3
+        gui.createButton("projects", 1, buttonY + 2, 13, 1, "Projects", function()
             showProjectSelector()
         end, colors.purple, colors.white)
+        
+        gui.createButton("quit", 15, buttonY + 2, 12, 1, "Quit", function()
+            running = false
+        end, colors.red, colors.white)
     end
     
     -- Draw all buttons
@@ -786,7 +790,7 @@ local function handleInput()
         for _ in pairs(turtles) do turtleCount = turtleCount + 1 end
         
         local w, h = term.getSize()
-        local maxScroll = math.max(0, turtleCount - (h - 7))
+        local maxScroll = math.max(0, turtleCount - (h - 8))
         
         if scrollOffset < maxScroll then
             scrollOffset = scrollOffset + 1
@@ -1042,7 +1046,7 @@ local function mainLoop()
                 -- Not a button, check turtle list clicks
                 local w, h = term.getSize()
                 local listStart = 4
-                local listHeight = h - 7
+                local listHeight = h - 8
                 
                 if y >= listStart and y < listStart + listHeight then
                     local idx = (y - listStart + 1) + scrollOffset
