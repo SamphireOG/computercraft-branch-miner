@@ -571,7 +571,7 @@ local function drawHeader()
     term.setBackgroundColor(colors.red)
     term.setTextColor(colors.white)
     term.write("#")
-    term.setCursorPos(w, 1)
+    term.setCursorPos(w - 2, 1)
     
     -- Status line
     term.setCursorPos(1, 2)
