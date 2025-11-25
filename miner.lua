@@ -477,30 +477,21 @@ end
 -- ========== MINING ==========
 
 local function mineTunnelSection()
-    -- Mine a 2-block high section
+    -- Mine a 2-block high section with chest protection
     local oresFound = 0
     
-    -- CRITICAL: Check if we're at home base - DON'T dig up/down if we are!
-    local atHome = (utils.position.x == config.HOME_X and 
-                   utils.position.y == config.HOME_Y and 
-                   utils.position.z == config.HOME_Z)
-    
-    -- Mine top block (SKIP if at home - fuel chest is above!)
-    if not atHome then
-        if utils.isOre("up") then
-            oresFound = oresFound + utils.mineVein("up")
-        else
-            turtle.digUp()
-        end
+    -- Mine top block (using SAFE dig to protect chests)
+    if utils.isOre("up") then
+        oresFound = oresFound + utils.mineVein("up")
     else
-        print("⚠ Skipping dig UP (at home base)")
+        utils.safeDig("up")  -- Will refuse to dig chests
     end
     
     -- Mine forward block
     if utils.isOre("forward") then
         oresFound = oresFound + utils.mineVein("forward")
     else
-        turtle.dig()
+        utils.safeDig("forward")
     end
     
     -- Move forward
@@ -510,11 +501,11 @@ local function mineTunnelSection()
         return false, 0
     end
     
-    -- Mine bottom block (stand on it) - safe to do now (moved away from home)
+    -- Mine bottom block (stand on it)
     if utils.isOre("down") then
         oresFound = oresFound + utils.mineVein("down")
     else
-        turtle.digDown()
+        utils.safeDig("down")
     end
     
     return true, oresFound

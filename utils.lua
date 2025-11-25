@@ -327,6 +327,44 @@ function utils.goToPosition(targetX, targetY, targetZ, useBroadcast)
     return true
 end
 
+-- ========== SAFE DIGGING (WITH CHEST PROTECTION) ==========
+
+function utils.safeDig(direction)
+    -- Safe digging that NEVER breaks chests
+    -- Returns: success (boolean), reason (string or nil)
+    
+    local inspectFunc, digFunc
+    if direction == "forward" then
+        inspectFunc = turtle.inspect
+        digFunc = turtle.dig
+    elseif direction == "up" then
+        inspectFunc = turtle.inspectUp
+        digFunc = turtle.digUp
+    elseif direction == "down" then
+        inspectFunc = turtle.inspectDown
+        digFunc = turtle.digDown
+    else
+        return false, "Invalid direction"
+    end
+    
+    -- Check what's there
+    local success, blockData = inspectFunc()
+    if not success then
+        -- Nothing to dig
+        return true
+    end
+    
+    -- Check if it's a chest
+    if blockData and blockData.name and blockData.name:match("chest") then
+        print("⚠ CHEST DETECTED - refusing to dig " .. direction)
+        print("  Block: " .. blockData.name)
+        return false, "Chest protected"
+    end
+    
+    -- Safe to dig
+    return digFunc()
+end
+
 -- ========== ORE VEIN MINING ==========
 
 function utils.isOre(direction)
