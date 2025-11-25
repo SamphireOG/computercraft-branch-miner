@@ -1231,6 +1231,21 @@ local function init()
     -- Request initial status from all turtles
     requestAllStatus()
     
+    -- DEBUG: Test if modem receives ANYTHING
+    print("")
+    print("Testing modem reception...")
+    print("Waiting 5 seconds for messages...")
+    local testStart = os.clock()
+    while os.clock() - testStart < 5 do
+        local event, side, channel, replyChannel, message, distance = os.pullEvent()
+        if event == "modem_message" then
+            print("RAW MSG RECEIVED! Ch:" .. channel)
+            break
+        end
+    end
+    print("Test complete.")
+    sleep(2)
+    
     return true
 end
 
