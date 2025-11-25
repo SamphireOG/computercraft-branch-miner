@@ -561,18 +561,16 @@ local function drawHeader()
     term.setTextColor(colors.white)
     term.clearLine()
     
+    -- Draw title starting from left
+    local title = " \7 BRANCH MINER CONTROL "
+    term.setCursorPos(2, 1)
+    term.write(title)
+    
     -- Settings button in top right corner (single red square with # icon)
     term.setCursorPos(w, 1)
     term.setBackgroundColor(colors.red)
     term.setTextColor(colors.white)
     term.write("#")
-    
-    -- Draw title right-aligned before the # button
-    term.setBackgroundColor(colors.blue)
-    term.setTextColor(colors.white)
-    local title = " \7 BRANCH MINER CONTROL \7 "
-    term.setCursorPos(w - #title, 1)
-    term.write(title)
     
     -- Reset colors
     term.setBackgroundColor(colors.blue)
