@@ -65,6 +65,14 @@ local function switchProject(projectName)
         protocol.modem.open(100)
     end
     
+    -- DEBUG: Verify channel is open
+    if protocol.modem then
+        print("DEBUG: Modem channels open:")
+        for _, ch in ipairs({protocol.modem.isOpen(config.MODEM_CHANNEL), protocol.modem.isOpen(100)}) do
+            print(" - " .. tostring(ch))
+        end
+    end
+    
     -- Clear old turtle data
     turtles = {}
     selectedTurtle = nil
@@ -731,12 +739,16 @@ local function checkForMessages()
     -- Check for modem messages from turtles
     local event, side, channel, replyChannel, message, distance = os.pullEvent("modem_message")
     
+    -- DEBUG: Log ALL messages
+    print("MSG: Ch" .. channel .. " (want:" .. config.MODEM_CHANNEL .. ") Type:" .. tostring(type(message)))
+    
     if channel == config.MODEM_CHANNEL and type(message) == "table" then
         local msgType = message.type
         local turtleID = message.sender
         local data = message.data or {}
         
         -- DEBUG: Log received heartbeat
+        print("MATCHED! Type:" .. tostring(msgType) .. " From:" .. tostring(turtleID))
         if msgType == protocol.MSG_TYPES.HEARTBEAT then
             print("HEARTBEAT from " .. turtleID .. " status:" .. tostring(data.status))
         end
