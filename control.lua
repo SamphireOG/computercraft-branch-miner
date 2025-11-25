@@ -812,9 +812,25 @@ local function drawControls()
         end, colors.lime, colors.black)
         
         -- Row 3
-        gui.createButton("deselect", 1, buttonY + 2, 26, 1, "X Cancel Selection", function()
-            selectedTurtle = nil
-        end, colors.gray, colors.white)
+        gui.createButton("setHome", 1, buttonY + 2, 26, 1, "Set Home @ Turtle", function()
+            local turtle = turtles[selectedTurtle]
+            if turtle and turtle.position then
+                local newHomeY = turtle.position.y
+                config.START_Y = newHomeY
+                if currentProject then
+                    currentProject.startY = newHomeY
+                    saveProjectConfig(currentProject.name, currentProject)
+                end
+                -- Show feedback
+                term.setBackgroundColor(colors.lime)
+                term.setTextColor(colors.black)
+                term.setCursorPos(1, h)
+                term.clearLine()
+                term.write(" Home Y set to " .. newHomeY .. " (Turtle " .. selectedTurtle .. ")")
+                sleep(1.5)
+                drawScreen()
+            end
+        end, colors.yellow, colors.black)
     else
         -- Global controls (3 rows)
         -- Row 1
