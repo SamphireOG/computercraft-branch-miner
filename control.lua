@@ -68,8 +68,10 @@ local function switchProject(projectName)
     end)
     
     if success then
-        print("Coordinator initialized (running on this pocket PC)")
-        sleep(0.5)
+        local workCount = #coordinator.workQueue or 0
+        print("Coordinator initialized with " .. workCount .. " tunnels")
+        print("(Running on this pocket PC)")
+        sleep(1)
     else
         print("Warning: Coordinator init failed")
         print("Error: " .. tostring(err))
