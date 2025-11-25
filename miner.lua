@@ -44,6 +44,27 @@ local function initializeMiner()
             config.START_Y = assignment.startY
             config.HOME_Y = assignment.startY  -- Turtle is placed at this Y level
             print("Y Level: " .. assignment.startY)
+        else
+            -- Old assignment file without startY - ask user to set it
+            print("WARNING: Y level not set!")
+            print("Enter the Y level where turtle is placed:")
+            print("(Check F3 debug screen or Project Settings)")
+            write("Y Level: ")
+            local input = read()
+            local yLevel = tonumber(input)
+            
+            if yLevel then
+                config.START_Y = yLevel
+                config.HOME_Y = yLevel
+                -- Update assignment file with new startY
+                assignment.startY = yLevel
+                projectClient.saveAssignment(assignment.projectName, assignment.channel, yLevel)
+                print("Y Level set to: " .. yLevel)
+            else
+                print("ERROR: Invalid Y level entered")
+                print("Please restart and enter a valid number")
+                return false
+            end
         end
         
         -- Close old modem connection and switch to project channel
@@ -118,6 +139,8 @@ local function initializeMiner()
     myState = state.createNew()
     
     -- Set home position
+    print("Home: X=" .. config.HOME_X .. " Y=" .. config.HOME_Y .. " Z=" .. config.HOME_Z)
+    print("START_Y=" .. config.START_Y)
     myState.homePosition = {x = config.HOME_X, y = config.HOME_Y, z = config.HOME_Z}
     utils.setPosition(config.HOME_X, config.HOME_Y, config.HOME_Z, 0)
     myState.position = utils.position
@@ -273,7 +296,13 @@ end
 function navigateToTunnelStart(assignment)
     print("Navigating to tunnel start...")
     
+    -- Debug: Show current position and target
+    local currX, currY, currZ, currF = utils.getPosition()
+    print("Current: X=" .. currX .. " Y=" .. currY .. " Z=" .. currZ)
+    
     local startPos = assignment.startPos
+    print("Target: X=" .. startPos.x .. " Y=" .. startPos.y .. " Z=" .. startPos.z)
+    
     local success = utils.goToPosition(startPos.x, startPos.y, startPos.z, true)
     
     if success then
@@ -283,6 +312,8 @@ function navigateToTunnelStart(assignment)
         return true
     else
         print("ERROR: Could not reach tunnel start")
+        local finalX, finalY, finalZ = utils.getPosition()
+        print("Stuck at: X=" .. finalX .. " Y=" .. finalY .. " Z=" .. finalZ)
         return false
     end
 end
