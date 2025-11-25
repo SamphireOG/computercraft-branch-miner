@@ -11,7 +11,8 @@ local files = {
     "config.lua", "protocol.lua", "state.lua", "utils.lua",
     "coordinator.lua", "miner.lua", "control.lua", "installer.lua",
     "project-server.lua", "project-client.lua",
-    "project_assignments.cfg"  -- Old buggy assignments file
+    "project_assignments.cfg",  -- Old buggy assignments file
+    "turtle_assignments.dat", "startup.lua"  -- Also clear these
 }
 
 for _, file in ipairs(files) do
