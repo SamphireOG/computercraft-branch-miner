@@ -736,9 +736,9 @@ local function drawControls()
             removeTurtle(selectedTurtle)
         end, colors.pink, colors.white)
         
-        gui.createButton("refresh", 19, buttonY + 1, 8, 1, "Refresh", function()
-            requestAllStatus()
-        end, colors.blue, colors.white)
+        gui.createButton("start", 19, buttonY + 1, 8, 1, "Start", function()
+            sendCommand(protocol.MSG_TYPES.CMD_RESUME, selectedTurtle)
+        end, colors.lime, colors.black)
         
         -- Row 3
         gui.createButton("deselect", 1, buttonY + 2, 26, 1, "X Cancel Selection", function()
@@ -756,9 +756,9 @@ local function drawControls()
         end, colors.lime, colors.black)
         
         -- Row 2
-        gui.createButton("refresh", 1, buttonY + 1, 13, 1, "Refresh", function()
-            requestAllStatus()
-        end, colors.blue, colors.white)
+        gui.createButton("startAll", 1, buttonY + 1, 13, 1, "Start All", function()
+            sendCommand(protocol.MSG_TYPES.CMD_RESUME, nil)
+        end, colors.lime, colors.black)
         
         gui.createButton("clear", 15, buttonY + 1, 12, 1, "Clear", function()
             cleanupOffline()
@@ -791,15 +791,8 @@ function sendCommand(cmd, targetID)
     -- Send command without blocking UI - don't wait for ACK
     protocol.send(cmd, {}, targetID)
     
-    -- Show brief non-blocking feedback in header
-    local w, h = term.getSize()
-    term.setCursorPos(1, 2)
-    term.setBackgroundColor(colors.black)
-    term.setTextColor(colors.lime)
-    local targetStr = targetID and ("T:" .. targetID) or "ALL"
-    local cmdStr = cmd:gsub("CMD_", "")
-    term.write("  \16 " .. cmdStr .. " -> " .. targetStr .. "     ")
-    -- Don't block - the message will get overwritten on next screen update
+    -- Commands send silently - turtles will update their status automatically
+    -- No visual feedback needed since the UI updates every 2 seconds
 end
 
 local function updateTurtleData(msg)
