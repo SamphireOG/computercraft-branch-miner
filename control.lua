@@ -884,8 +884,13 @@ end
 -- ========== MAIN ==========
 
 local function main()
-    if not init() then
-        return
+    -- Loop until successful initialization
+    while true do
+        if init() then
+            break
+        end
+        -- If init() returns false (e.g., from menu), loop back
+        sleep(0.5)
     end
     
     -- Run controller and project server in parallel
