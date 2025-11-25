@@ -410,20 +410,10 @@ local function projectManagementMenu()
             createNewProject()
         end, colors.lime, colors.black)
         
-        term.setCursorPos(3, 8)
-        term.setBackgroundColor(colors.lime)
-        term.setTextColor(colors.black)
-        term.write(" + CREATE NEW PROJECT")
-        
         -- Delete project button
         gui.createButton("delete", 2, 11, w - 4, 3, "", function()
             deleteProject()
         end, colors.red, colors.white)
-        
-        term.setCursorPos(3, 12)
-        term.setBackgroundColor(colors.red)
-        term.setTextColor(colors.white)
-        term.write(" - DELETE PROJECT")
         
         -- Back button
         gui.createButton("back", 2, h - 2, w - 4, 1, "< GO BACK", function()
@@ -431,6 +421,17 @@ local function projectManagementMenu()
         end, colors.gray, colors.white)
         
         gui.drawAllButtons()
+        
+        -- Draw text on buttons AFTER drawing them
+        term.setCursorPos(3, 8)
+        term.setBackgroundColor(colors.lime)
+        term.setTextColor(colors.black)
+        term.write(" + CREATE NEW PROJECT")
+        
+        term.setCursorPos(3, 12)
+        term.setBackgroundColor(colors.red)
+        term.setTextColor(colors.white)
+        term.write(" - DELETE PROJECT")
         
         -- Handle clicks
         while true do
@@ -1280,17 +1281,42 @@ local function init()
     -- Check for modem
     if not peripheral.find("modem") then
         clearScreen()
-        print("ERROR: No wireless modem found!")
-        print("")
-        print("Attach an Ender Modem to use this controller.")
+        local w, h = term.getSize()
+        
+        -- Error header
+        term.setBackgroundColor(colors.red)
+        term.setTextColor(colors.white)
+        term.setCursorPos(1, 1)
+        term.clearLine()
+        local title = " ! ERROR ! "
+        term.setCursorPos(math.floor((w - #title) / 2), 1)
+        term.write(title)
+        
+        term.setBackgroundColor(colors.black)
+        term.setCursorPos(2, 3)
+        term.setTextColor(colors.orange)
+        print("No wireless modem found!")
+        term.setCursorPos(2, 5)
+        term.setTextColor(colors.white)
+        print("Attach an Ender Modem to")
+        term.setCursorPos(2, 6)
+        print("use this controller.")
         return false
     end
     
     clearScreen()
-    print("------------------------")
-    print(" BRANCH MINER CONTROL")
-    print("------------------------")
-    print("")
+    local w, h = term.getSize()
+    
+    -- Fancy header
+    term.setBackgroundColor(colors.blue)
+    term.setTextColor(colors.white)
+    term.setCursorPos(1, 1)
+    term.clearLine()
+    local title = " \7 BRANCH MINER CONTROL \7 "
+    term.setCursorPos(math.floor((w - #title) / 2), 1)
+    term.write(title)
+    
+    term.setBackgroundColor(colors.black)
     
     -- Initialize project server (silent)
     projectServer.init()
@@ -1299,25 +1325,56 @@ local function init()
     availableProjects = listProjects()
     
     if #availableProjects == 0 then
+        term.setCursorPos(2, 3)
+        term.setTextColor(colors.orange)
         print("No projects found!")
-        print("")
-        print("1. Create new project")
-        print("2. Exit")
-        print("")
-        print("Choice:")
-        local choice = read()
+        term.setTextColor(colors.white)
+        term.setCursorPos(2, 5)
+        print("Create your first project:")
         
-        if choice == "1" then
+        gui.clearButtons()
+        
+        -- Create project button
+        gui.createButton("create_first", 2, 7, w - 4, 3, "", function()
             if createNewProject() then
                 -- Refresh and continue
                 availableProjects = listProjects()
-                if #availableProjects == 0 then
-                    return false
-                end
-            else
+            end
+        end, colors.lime, colors.black)
+        
+        -- Exit button
+        gui.createButton("exit_first", 2, 11, w - 4, 2, "", function()
+            return false
+        end, colors.red, colors.white)
+        
+        gui.drawAllButtons()
+        
+        -- Draw text on buttons
+        term.setCursorPos(3, 8)
+        term.setBackgroundColor(colors.lime)
+        term.setTextColor(colors.black)
+        term.write(" + CREATE PROJECT")
+        
+        term.setCursorPos(3, 12)
+        term.setBackgroundColor(colors.red)
+        term.setTextColor(colors.white)
+        term.write(" EXIT")
+        
+        -- Handle clicks
+        local initRunning = true
+        while initRunning do
+            local event = {os.pullEvent()}
+            if event[1] == "mouse_click" then
+                gui.handleClick(event[3], event[4])
+                break
+            elseif event[1] == "mouse_drag" then
+                gui.updateHover(event[3], event[4])
+            elseif event[1] == "key" and event[2] == keys.q then
                 return false
             end
-        else
+        end
+        
+        if #availableProjects == 0 then
             return false
         end
     end
@@ -1346,9 +1403,14 @@ local function init()
         end
     end
     
+    term.setCursorPos(1, 3)
+    term.setTextColor(colors.white)
+    
     -- Show active projects
     if #projectsWithTurtles > 0 then
+        term.setTextColor(colors.lime)
         print("ACTIVE PROJECTS:")
+        term.setTextColor(colors.white)
         for _, proj in ipairs(projectsWithTurtles) do
             print(string.format(" %d. %s (%d turtles)", proj.index, proj.name, proj.turtles))
         end
@@ -1357,7 +1419,9 @@ local function init()
     
     -- Show inactive projects
     if #projectsWithoutTurtles > 0 then
+        term.setTextColor(colors.gray)
         print("INACTIVE:")
+        term.setTextColor(colors.white)
         for _, proj in ipairs(projectsWithoutTurtles) do
             print(string.format(" %d. %s (no turtles)", proj.index, proj.name))
         end
@@ -1365,14 +1429,47 @@ local function init()
     end
     
     if #selectableProjects == 0 then
+        term.setTextColor(colors.orange)
         print("No active projects!")
+        term.setTextColor(colors.white)
         print("")
-        print("1. Pair turtle")
-        print("2. Manage projects")
-        print("3. Exit")
-        print("")
-        print("Choice:")
-        local choice = read()
+        print("Pair a turtle to get started:")
+        
+        gui.clearButtons()
+        
+        -- Pair turtle button
+        gui.createButton("pair", 2, h - 8, w - 4, 2, "PAIR TURTLE", nil, colors.cyan, colors.white)
+        
+        -- Manage projects button
+        gui.createButton("manage", 2, h - 5, w - 4, 2, "MANAGE PROJECTS", function()
+            projectManagementMenu()
+            return false
+        end, colors.orange, colors.white)
+        
+        -- Exit button
+        gui.createButton("exit_noproj", 2, h - 2, w - 4, 1, "EXIT", nil, colors.red, colors.white)
+        
+        gui.drawAllButtons()
+        
+        -- Handle clicks
+        local choice = nil
+        while not choice do
+            local event = {os.pullEvent()}
+            if event[1] == "mouse_click" then
+                local buttonId = gui.handleClick(event[3], event[4])
+                if buttonId == "pair" then
+                    choice = "1"
+                elseif buttonId == "manage" then
+                    return false
+                elseif buttonId == "exit_noproj" then
+                    return false
+                end
+            elseif event[1] == "mouse_drag" then
+                gui.updateHover(event[3], event[4])
+            elseif event[1] == "key" and event[2] == keys.q then
+                return false
+            end
+        end
         
         if choice == "1" then
             -- Interactive pairing mode
@@ -1489,41 +1586,71 @@ local function init()
         end
     end
     
-    -- Select project
+    -- Select project with GUI
+    term.setTextColor(colors.cyan)
+    local cy, _ = term.getCursorPos()
+    term.setCursorPos(2, cy)
     print("Select project")
-    print("(or M for menu): ")
-    local input = read()
+    term.setTextColor(colors.gray)
+    term.setCursorPos(2, cy + 1)
+    print("(or M for menu):")
     
-    if input:lower() == "m" then
-        projectManagementMenu()
-        return false -- Return to restart
+    gui.clearButtons()
+    
+    -- Create project selection buttons
+    local buttonY = cy + 3
+    local selectedProjectName = nil
+    
+    for _, proj in ipairs(projectsWithTurtles) do
+        local btnColor = colors.lime
+        local btnText = colors.black
+        
+        gui.createButton("select_proj_" .. proj.index, 2, buttonY, w - 4, 2, "", function()
+            selectedProjectName = proj.name
+        end, btnColor, btnText)
+        
+        term.setCursorPos(3, buttonY)
+        term.setBackgroundColor(btnColor)
+        term.setTextColor(btnText)
+        term.write(string.format(" %s (%d)", proj.name, proj.turtles))
+        
+        buttonY = buttonY + 3
     end
     
-    local choice = tonumber(input)
+    -- Menu button
+    gui.createButton("menu_btn", 2, h - 2, w - 4, 1, "M = MENU", function()
+        projectManagementMenu()
+        return false
+    end, colors.purple, colors.white)
     
-    -- Validate selection
-    local isValid = false
-    for _, validChoice in ipairs(selectableProjects) do
-        if choice == validChoice then
-            isValid = true
-            break
+    gui.drawAllButtons()
+    
+    -- Handle selection
+    while not selectedProjectName do
+        local event = {os.pullEvent()}
+        if event[1] == "mouse_click" then
+            local buttonId = gui.handleClick(event[3], event[4])
+            if buttonId == "menu_btn" then
+                return false
+            end
+        elseif event[1] == "mouse_drag" then
+            gui.updateHover(event[3], event[4])
+        elseif event[1] == "char" and event[2] == "m" then
+            projectManagementMenu()
+            return false
+        elseif event[1] == "key" and event[2] == keys.q then
+            return false
         end
     end
     
-    if not isValid then
-        print("")
-        print("Invalid choice!")
-        print("No turtles in that")
-        print("project.")
-        sleep(2)
-        return false
-    end
-    
-    local projName = availableProjects[choice]
-    local success, err = switchProject(projName)
+    -- Switch to selected project
+    local success, err = switchProject(selectedProjectName)
     
     if not success then
-        print("ERROR: " .. (err or "Unknown error"))
+        term.setCursorPos(2, h - 4)
+        term.setTextColor(colors.red)
+        print("ERROR: " .. (err or "Unknown"))
+        sleep(2)
         return false
     end
     
