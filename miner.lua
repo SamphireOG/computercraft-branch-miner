@@ -129,6 +129,28 @@ local function initializeMiner()
                 myState = savedState
                 utils.setPosition(myState.position.x, myState.position.y, myState.position.z, myState.position.facing)
                 print("Resuming from saved state...")
+                
+                -- If turtle is at home, verify orientation with chest detection
+                local atHome = (myState.position.x == config.HOME_X and 
+                               myState.position.y == config.HOME_Y and 
+                               myState.position.z == config.HOME_Z)
+                
+                if atHome then
+                    print("")
+                    print("At home base - verifying orientation...")
+                    if utils.detectOrientation() then
+                        utils.position.x = config.HOME_X
+                        utils.position.y = config.HOME_Y
+                        utils.position.z = config.HOME_Z
+                        myState.position = utils.position
+                        print("✓ Orientation verified: " .. utils.facingNames[utils.position.facing + 1])
+                        state.save(myState)
+                    else
+                        print("⚠ Could not verify orientation")
+                    end
+                    print("")
+                end
+                
                 return true
             end
         end

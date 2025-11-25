@@ -46,28 +46,44 @@ function utils.detectOrientation()
     -- Expected setup: Ores chest in FRONT (south/+Z), Fuel chest ABOVE, Cobble chest BELOW
     
     print("Detecting orientation from chests...")
+    print("Checking: Up=" .. tostring(utils.isChest("up")) .. 
+          " Down=" .. tostring(utils.isChest("down")))
     
-    -- Check all 4 directions for the ores chest
-    for facing = 0, 3 do
+    -- First verify we have chests above/below (confirms we're at home base)
+    local hasChestAbove = utils.isChest("up")
+    local hasChestBelow = utils.isChest("down")
+    
+    if not (hasChestAbove or hasChestBelow) then
+        print("⚠ No chests above/below - not at home base?")
+        return false
+    end
+    
+    print("✓ Chests detected above/below (at home base)")
+    
+    -- Now check all 4 directions for the ores chest in front
+    local startFacing = utils.position.facing or 0
+    
+    for turn = 0, 3 do
+        print("Checking direction " .. turn .. "...")
+        
         if utils.isChest("forward") then
-            -- Found chest in front - this should be the ores chest (south)
-            -- So we're facing SOUTH (facing = 2)
-            local correctFacing = 2
-            local turnsNeeded = (correctFacing - facing) % 4
+            -- Found ores chest in front
+            -- Ores chest is at HOME_Z + 1 (south of home)
+            -- Mining tunnels go north (negative Z), so we need to face NORTH (away from chest)
+            turtle.turnRight()
+            turtle.turnRight()  -- Turn 180° to face away from chest
             
-            for i = 1, turnsNeeded do
-                turtle.turnRight()
-            end
-            
-            utils.position.facing = 2  -- Now facing south (toward ores chest)
-            print("✓ Orientation detected: Facing South (toward ores chest)")
+            utils.position.facing = 0  -- Facing NORTH (toward mining tunnels, negative Z)
+            print("✓ Orientation set: Facing North (toward mining area)")
+            print("  (Ores chest is behind/south of us)")
             return true
         end
+        
         turtle.turnRight()
     end
     
-    print("⚠ Could not detect orientation - no chest found")
-    print("  Make sure ores chest is placed in front of turtle")
+    print("⚠ Could not find ores chest in any direction")
+    print("  Make sure ores chest is placed adjacent to turtle")
     return false
 end
 
@@ -476,23 +492,39 @@ function utils.depositInventory(keepBuildingBlocks)
     local deposited = 0
     
     for slot = 1, 16 do
-        turtle.select(slot)
-        local item = turtle.getItemDetail(slot)
-        
-        if item then
-            local isBuilding = config.isBuildingBlock(item.name)
+        -- SKIP SLOT 16: This is our fuel storage, don't deposit it!
+        if slot == 16 then
+            -- Keep fuel items in slot 16
+        else
+            turtle.select(slot)
+            local item = turtle.getItemDetail(slot)
             
-            if isBuilding then
-                -- Keep some building blocks, deposit rest to cobble chest below
-                local keepAmount = keepBuildingBlocks and config.COBBLE_KEEP_AMOUNT or 0
-                if item.count > keepAmount then
-                    turtle.dropDown(item.count - keepAmount)
-                    deposited = deposited + (item.count - keepAmount)
+            if item then
+                local isBuilding = config.isBuildingBlock(item.name)
+                local isFuel = config.getFuelValue(item.name) > 0
+                
+                if isBuilding then
+                    -- Keep building blocks in slot 1, deposit rest to cobble chest below
+                    if slot == 1 then
+                        local keepAmount = keepBuildingBlocks and config.COBBLE_KEEP_AMOUNT or 0
+                        if item.count > keepAmount then
+                            turtle.dropDown(item.count - keepAmount)
+                            deposited = deposited + (item.count - keepAmount)
+                        end
+                    else
+                        -- Building blocks in other slots -> deposit to cobble chest
+                        turtle.dropDown()
+                        deposited = deposited + item.count
+                    end
+                elseif isFuel then
+                    -- Fuel items found in slots 2-15 -> deposit to fuel chest above
+                    turtle.dropUp()
+                    deposited = deposited + item.count
+                else
+                    -- Valuable items/ores -> deposit to item chest in front
+                    turtle.drop()
+                    deposited = deposited + item.count
                 end
-            else
-                -- Deposit valuable items/ores to item chest in front
-                turtle.drop()
-                deposited = deposited + item.count
             end
         end
     end
