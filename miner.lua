@@ -143,6 +143,9 @@ local function processCommand(msg)
             myState.status = "mining"
         else
             myState.status = "idle"
+            -- Request work from coordinator
+            print("Requesting work from coordinator...")
+            protocol.claimTunnel()
         end
         state.save(myState)
         print("RESUMED by controller")
