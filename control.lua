@@ -4,6 +4,7 @@
 local config = require("config")
 local protocol = require("protocol")
 local projectServer = require("project-server")
+local gui = require("gui")
 
 -- ========== PROJECT MANAGEMENT ==========
 
@@ -63,14 +64,6 @@ local function switchProject(projectName)
     -- Also keep discovery channel open for pairing
     if protocol.modem then
         protocol.modem.open(100)
-    end
-    
-    -- DEBUG: Verify channel is open
-    if protocol.modem then
-        print("DEBUG: Modem channels open:")
-        for _, ch in ipairs({protocol.modem.isOpen(config.MODEM_CHANNEL), protocol.modem.isOpen(100)}) do
-            print(" - " .. tostring(ch))
-        end
     end
     
     -- Clear old turtle data
@@ -289,8 +282,6 @@ local scrollOffset = 0
 local running = true
 local lastUpdate = 0
 local showProjectSelector = false
-local lastMessageTime = 0  -- Track when last message received
-local messageCount = 0  -- Count messages received
 
 -- ========== SCREEN HELPERS (continued) ==========
 
@@ -303,12 +294,13 @@ end
 local function drawHeader()
     local w, h = term.getSize()
     
+    -- Fancy header with gradient effect (using different shades)
     term.setCursorPos(1, 1)
-    term.setBackgroundColor(colorScheme.header)
-    term.setTextColor(colorScheme.text)
+    term.setBackgroundColor(colors.blue)
+    term.setTextColor(colors.white)
     term.clearLine()
     
-    local title = " Branch Miner Control "
+    local title = " \7 BRANCH MINER CONTROL \7 "
     term.setCursorPos(math.floor((w - #title) / 2), 1)
     term.write(title)
     
@@ -333,25 +325,51 @@ local function drawHeader()
         end
     end
     
-    -- Show project info
+    -- Show project info with badges
+    term.setCursorPos(1, 2)
+    term.setBackgroundColor(colorScheme.background)
+    term.clearLine()
+    
     local projectName = currentProject and currentProject.name or "No Project"
-    term.write("Project: " .. projectName .. " | Ch:" .. config.MODEM_CHANNEL)
+    
+    -- Project badge
+    term.setTextColor(colorScheme.idle)
+    term.write("Project: ")
+    term.setBackgroundColor(colors.purple)
+    term.setTextColor(colors.white)
+    term.write(" " .. projectName .. " ")
+    term.setBackgroundColor(colorScheme.background)
+    
+    -- Channel badge
+    term.setTextColor(colorScheme.idle)
+    term.write(" Ch:")
+    term.setBackgroundColor(colors.gray)
+    term.setTextColor(colors.white)
+    term.write(" " .. config.MODEM_CHANNEL .. " ")
+    term.setBackgroundColor(colorScheme.background)
     
     term.setCursorPos(1, 3)
     term.clearLine()
     
-    local status = "Turtles: " .. activeCount .. " active | Msgs:" .. messageCount
+    -- Status with colored indicators
+    term.setTextColor(colorScheme.text)
+    term.write("Active: ")
+    term.setTextColor(activeCount > 0 and colors.lime or colors.red)
+    term.write(activeCount)
+    term.setTextColor(colorScheme.text)
+    
     if miningCount > 0 then
-        status = status .. ", " .. miningCount .. " mining"
+        term.write("  Mining: ")
+        term.setTextColor(colors.lime)
+        term.write(miningCount)
+        term.setTextColor(colorScheme.text)
     end
     if pausedCount > 0 then
-        status = status .. ", " .. pausedCount .. " paused"
+        term.write("  Paused: ")
+        term.setTextColor(colors.orange)
+        term.write(pausedCount)
+        term.setTextColor(colorScheme.text)
     end
-    
-    term.write(status)
-    term.setTextColor(colorScheme.idle)
-    term.write(" | Press 'P' for projects")
-    term.setTextColor(colorScheme.text)
 end
 
 local function drawTurtleList()
@@ -359,12 +377,13 @@ local function drawTurtleList()
     local listStart = 4
     local listHeight = h - 7  -- Leave room for header and controls
     
-    -- List header
+    -- List header with fancy colors
     term.setCursorPos(1, listStart - 1)
-    term.setBackgroundColor(colorScheme.background)
-    term.setTextColor(colorScheme.idle)
+    term.setBackgroundColor(colors.gray)
+    term.setTextColor(colors.white)
     term.clearLine()
-    term.write("ID  Label         Status      Fuel  Inv  Position")
+    term.write(" ID  Label         Status      Fuel  Inv ")
+    term.setBackgroundColor(colorScheme.background)
     
     -- Draw turtles
     local turtleList = {}
@@ -386,33 +405,40 @@ local function drawTurtleList()
             local turtle = turtleList[idx].data
             local id = turtleList[idx].id
             
-            -- Status color
+            -- Status color and background
             local statusColor = colorScheme.idle
+            local statusBg = colorScheme.background
+            local statusText = "idle"
+            
             if turtle.status == "mining" then
                 statusColor = colorScheme.active
+                statusText = "mining"
             elseif turtle.status == "paused" then
                 statusColor = colorScheme.paused
+                statusText = "paused"
             elseif turtle.status == "offline" then
                 statusColor = colorScheme.error
+                statusText = "OFFLINE"
             elseif turtle.status == "returning" then
                 statusColor = colorScheme.warning
+                statusText = "return"
+            else
+                statusText = turtle.status
             end
             
-            -- Highlight selected
+            -- Highlight selected with fancy colors
             if selectedTurtle == id then
-                term.setBackgroundColor(colors.gray)
+                term.setBackgroundColor(colors.lightBlue)
+            else
+                term.setBackgroundColor(colorScheme.background)
             end
             
             term.setTextColor(colorScheme.text)
             
-            -- Format line
+            -- Format line with visual badges
             local label = turtle.label or ("Turtle-" .. id)
-            if #label > 12 then label = label:sub(1, 12) end
-            label = label .. string.rep(" ", 12 - #label)
-            
-            local status = turtle.status or "unknown"
-            if #status > 10 then status = status:sub(1, 10) end
-            status = status .. string.rep(" ", 10 - #status)
+            if #label > 10 then label = label:sub(1, 10) end
+            label = label .. string.rep(" ", 10 - #label)
             
             local fuel = turtle.fuelPercent or 0
             local fuelStr = string.format("%3d%%", fuel)
@@ -420,17 +446,30 @@ local function drawTurtleList()
             local inv = turtle.freeSlots or 0
             local invStr = string.format("%2d", inv)
             
-            local pos = turtle.position or {x = 0, y = 0, z = 0}
-            local posStr = string.format("%d,%d,%d", pos.x, pos.y, pos.z)
-            
-            term.write(string.format("%-3s ", id))
+            -- Draw turtle ID and label
+            term.write(string.format(" %-2s ", id))
             term.write(label .. " ")
-            term.setTextColor(statusColor)
-            term.write(status .. " ")
+            
+            -- Draw status badge
+            term.setBackgroundColor(statusColor)
+            term.setTextColor(colors.white)
+            term.write(" " .. statusText .. " ")
+            term.setBackgroundColor(selectedTurtle == id and colors.lightBlue or colorScheme.background)
+            term.write(" ")
+            
+            -- Draw fuel bar
+            local fuelColor = colors.lime
+            if fuel < 20 then
+                fuelColor = colors.red
+            elseif fuel < 50 then
+                fuelColor = colors.yellow
+            end
+            term.setTextColor(fuelColor)
+            term.write(fuelStr)
+            
+            -- Draw inventory
             term.setTextColor(colorScheme.text)
-            term.write(fuelStr .. " ")
-            term.write(invStr .. "  ")
-            term.write(posStr)
+            term.write(" " .. invStr .. " ")
             
             term.setBackgroundColor(colorScheme.background)
         end
@@ -441,31 +480,78 @@ local function drawControls()
     local w, h = term.getSize()
     local controlY = h - 3
     
-    -- Draw control panel
+    -- Draw control panel separator
     term.setCursorPos(1, controlY)
     term.setBackgroundColor(colorScheme.background)
     term.setTextColor(colorScheme.idle)
     term.clearLine()
     term.write(string.rep("-", w))
     
-    term.setCursorPos(1, controlY + 1)
-    term.clearLine()
-    term.setTextColor(colorScheme.text)
+    -- Clear button area
+    gui.clearButtons()
+    
+    local buttonY = controlY + 1
     
     if selectedTurtle then
-        term.write("[P]ause [R]esume [H]ome [Backspace]Deselect")
+        -- Turtle-specific controls
+        gui.createButton("pause", 1, buttonY, 8, 1, "Pause", function()
+            sendCommand(protocol.MSG_TYPES.CMD_PAUSE, selectedTurtle)
+        end, colors.orange, colors.white)
+        
+        gui.createButton("resume", 10, buttonY, 8, 1, "Resume", function()
+            sendCommand(protocol.MSG_TYPES.CMD_RESUME, selectedTurtle)
+        end, colors.lime, colors.black)
+        
+        gui.createButton("home", 19, buttonY, 8, 1, "Home", function()
+            sendCommand(protocol.MSG_TYPES.CMD_RETURN_BASE, selectedTurtle)
+        end, colors.lightBlue, colors.black)
+        
+        gui.createButton("deselect", 28, buttonY, 10, 1, "Deselect", function()
+            selectedTurtle = nil
+        end, colors.gray, colors.white)
+        
+        -- Second row
+        gui.createButton("shutdown", 1, buttonY + 1, 10, 1, "Shutdown", function()
+            sendCommand(protocol.MSG_TYPES.CMD_SHUTDOWN, selectedTurtle)
+        end, colors.red, colors.white)
+        
+        gui.createButton("remove", 12, buttonY + 1, 8, 1, "Remove", function()
+            removeTurtle(selectedTurtle)
+        end, colors.pink, colors.white)
+        
+        gui.createButton("refresh", 21, buttonY + 1, 9, 1, "Refresh", function()
+            requestAllStatus()
+        end, colors.blue, colors.white)
     else
-        term.write("[A]ll Pause [Z]All Resume [Q]uit")
+        -- Global controls
+        gui.createButton("pauseAll", 1, buttonY, 11, 1, "Pause All", function()
+            sendCommand(protocol.MSG_TYPES.CMD_PAUSE, nil)
+        end, colors.orange, colors.white)
+        
+        gui.createButton("resumeAll", 13, buttonY, 12, 1, "Resume All", function()
+            sendCommand(protocol.MSG_TYPES.CMD_RESUME, nil)
+        end, colors.lime, colors.black)
+        
+        gui.createButton("quit", 26, buttonY, 7, 1, "Quit", function()
+            running = false
+        end, colors.red, colors.white)
+        
+        -- Second row
+        gui.createButton("refresh", 1, buttonY + 1, 9, 1, "Refresh", function()
+            requestAllStatus()
+        end, colors.blue, colors.white)
+        
+        gui.createButton("clear", 11, buttonY + 1, 13, 1, "Clear Offline", function()
+            cleanupOffline()
+        end, colors.gray, colors.white)
+        
+        gui.createButton("projects", 25, buttonY + 1, 10, 1, "Projects", function()
+            showProjectSelector()
+        end, colors.purple, colors.white)
     end
     
-    term.setCursorPos(1, controlY + 2)
-    term.clearLine()
-    
-    if selectedTurtle then
-        term.write("[S]hutdown [X]Remove [F]Refresh")
-    else
-        term.write("[F]Refresh [C]lear Offline [Click to select]")
-    end
+    -- Draw all buttons
+    gui.drawAllButtons()
 end
 
 local function drawScreen()
@@ -629,6 +715,12 @@ local function handleInput()
         local x = param2
         local y = param3
         
+        -- Check for GUI button clicks first
+        local buttonClicked = gui.handleClick(x, y)
+        if buttonClicked then
+            return  -- Button was clicked, done
+        end
+        
         -- Check if clicking in turtle list area
         local w, h = term.getSize()
         local listStart = 4
@@ -658,7 +750,15 @@ local function handleInput()
         return
     end
     
-    -- Handle keyboard input
+    -- Handle mouse movement for hover effects
+    if event == "mouse_move" or event == "mouse_drag" then
+        local x = param1
+        local y = param2
+        gui.updateHover(x, y)
+        return
+    end
+    
+    -- Handle keyboard input (kept for power users)
     if event ~= "key" then
         return
     end
@@ -909,22 +1009,11 @@ end
 local function mainLoop()
     local lastOfflineCheck = 0
     
-    print("Main loop active!")
-    sleep(1)
-    
     while running do
         -- Update display
         local now = os.clock()
         if now - lastUpdate > 2 then
             drawScreen()
-            
-            -- DEBUG: Show message count at top
-            term.setCursorPos(1, 1)
-            term.setBackgroundColor(colors.red)
-            term.setTextColor(colors.white)
-            term.write("MSGS:" .. messageCount .. " ")
-            term.setBackgroundColor(colors.black)
-            
             lastUpdate = now
         end
         
@@ -937,10 +1026,6 @@ local function mainLoop()
         
         -- Pull any event without filtering
         local event = {os.pullEvent()}
-        
-        -- DEBUG: Show ALL events
-        term.setCursorPos(1, 2)
-        term.write("Evt: " .. tostring(event[1]) .. "            ")
         
         if event[1] == "key" or event[1] == "mouse_click" or event[1] == "char" then
             -- Handle input in a separate call to avoid blocking
@@ -955,10 +1040,6 @@ local function mainLoop()
         elseif event[1] == "modem_message" then
             -- Process the message we just received
             local side, channel, replyChannel, message, distance = event[2], event[3], event[4], event[5], event[6]
-            
-            -- Track message received
-            lastMessageTime = os.clock()
-            messageCount = messageCount + 1
             
             if channel == config.MODEM_CHANNEL and type(message) == "table" then
                 local msgType = message.type
@@ -1244,16 +1325,7 @@ local function init()
     
     print("")
     print("Loading " .. currentProject.name .. "...")
-    print("Listening on channel: " .. config.MODEM_CHANNEL)
-    print("Modem: " .. tostring(protocol.modem ~= nil))
-    
-    -- DEBUG: Check if channel is actually open
-    if protocol.modem then
-        print("Channel " .. config.MODEM_CHANNEL .. " open: " .. tostring(protocol.modem.isOpen(config.MODEM_CHANNEL)))
-        print("Discovery ch 100 open: " .. tostring(protocol.modem.isOpen(100)))
-    end
-    
-    sleep(2)
+    sleep(0.5)
     
     -- Load turtles from assignments (initially marked offline)
     local assignments = projectServer.assignments[currentProject.name] or {}
@@ -1277,15 +1349,10 @@ local function init()
     -- Force modem to open the channel (just to be absolutely sure)
     if protocol.modem then
         protocol.modem.open(config.MODEM_CHANNEL)
-        print("Forced channel " .. config.MODEM_CHANNEL .. " open: " .. tostring(protocol.modem.isOpen(config.MODEM_CHANNEL)))
     end
     
     -- Request initial status from all turtles
     requestAllStatus()
-    
-    print("")
-    print("Starting main loop...")
-    sleep(1)
     
     return true
 end
