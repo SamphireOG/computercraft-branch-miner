@@ -313,7 +313,7 @@ function server.stop()
     -- Stop the server and close modem
     server.isRunning = false
     if protocol and protocol.modem then
-        protocol.modem.close(server.DISCOVERY_CHANNEL)
+        protocol.modem.close(DISCOVERY_CHANNEL)
     end
 end
 

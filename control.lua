@@ -343,8 +343,8 @@ local function drawHeader()
     -- Channel badge
     term.setTextColor(colorScheme.idle)
     term.write(" Ch:")
-    term.setBackgroundColor(colors.gray)
-    term.setTextColor(colors.white)
+    term.setBackgroundColor(colors.cyan)
+    term.setTextColor(colors.black)
     term.write(" " .. config.MODEM_CHANNEL .. " ")
     term.setBackgroundColor(colorScheme.background)
     
@@ -493,59 +493,59 @@ local function drawControls()
     local buttonY = controlY + 1
     
     if selectedTurtle then
-        -- Turtle-specific controls with icons
-        gui.createButton("pause", 1, buttonY, 8, 1, "\149Pause", function()
+        -- Turtle-specific controls with icons (compact layout)
+        gui.createButton("pause", 1, buttonY, 7, 1, "Pause", function()
             sendCommand(protocol.MSG_TYPES.CMD_PAUSE, selectedTurtle)
         end, colors.orange, colors.white)
         
-        gui.createButton("resume", 10, buttonY, 9, 1, "\16Resume", function()
+        gui.createButton("resume", 9, buttonY, 8, 1, "Resume", function()
             sendCommand(protocol.MSG_TYPES.CMD_RESUME, selectedTurtle)
         end, colors.lime, colors.black)
         
-        gui.createButton("home", 20, buttonY, 7, 1, "\127Home", function()
+        gui.createButton("home", 18, buttonY, 6, 1, "Home", function()
             sendCommand(protocol.MSG_TYPES.CMD_RETURN_BASE, selectedTurtle)
         end, colors.lightBlue, colors.black)
         
-        gui.createButton("deselect", 28, buttonY, 10, 1, "X Cancel", function()
+        gui.createButton("deselect", 25, buttonY, 8, 1, "Cancel", function()
             selectedTurtle = nil
         end, colors.gray, colors.white)
         
         -- Second row
-        gui.createButton("shutdown", 1, buttonY + 1, 11, 1, "\15Shutdown", function()
+        gui.createButton("shutdown", 1, buttonY + 1, 10, 1, "Shutdown", function()
             sendCommand(protocol.MSG_TYPES.CMD_SHUTDOWN, selectedTurtle)
         end, colors.red, colors.white)
         
-        gui.createButton("remove", 13, buttonY + 1, 9, 1, "\215Remove", function()
+        gui.createButton("remove", 12, buttonY + 1, 8, 1, "Remove", function()
             removeTurtle(selectedTurtle)
         end, colors.pink, colors.white)
         
-        gui.createButton("refresh", 23, buttonY + 1, 10, 1, "\18Refresh", function()
+        gui.createButton("refresh", 21, buttonY + 1, 9, 1, "Refresh", function()
             requestAllStatus()
         end, colors.blue, colors.white)
     else
-        -- Global controls with icons
-        gui.createButton("pauseAll", 1, buttonY, 12, 1, "\149Pause All", function()
+        -- Global controls (compact layout)
+        gui.createButton("pauseAll", 1, buttonY, 11, 1, "Pause All", function()
             sendCommand(protocol.MSG_TYPES.CMD_PAUSE, nil)
         end, colors.orange, colors.white)
         
-        gui.createButton("resumeAll", 14, buttonY, 13, 1, "\16Resume All", function()
+        gui.createButton("resumeAll", 13, buttonY, 12, 1, "Resume All", function()
             sendCommand(protocol.MSG_TYPES.CMD_RESUME, nil)
         end, colors.lime, colors.black)
         
-        gui.createButton("quit", 28, buttonY, 7, 1, "Quit", function()
+        gui.createButton("quit", 26, buttonY, 6, 1, "Quit", function()
             running = false
         end, colors.red, colors.white)
         
         -- Second row
-        gui.createButton("refresh", 1, buttonY + 1, 10, 1, "\18Refresh", function()
+        gui.createButton("refresh", 1, buttonY + 1, 9, 1, "Refresh", function()
             requestAllStatus()
         end, colors.blue, colors.white)
         
-        gui.createButton("clear", 12, buttonY + 1, 15, 1, "\215Clear Offline", function()
+        gui.createButton("clear", 11, buttonY + 1, 14, 1, "Clear Offline", function()
             cleanupOffline()
         end, colors.gray, colors.white)
         
-        gui.createButton("projects", 28, buttonY + 1, 11, 1, "\7Projects", function()
+        gui.createButton("projects", 26, buttonY + 1, 10, 1, "Projects", function()
             showProjectSelector()
         end, colors.purple, colors.white)
     end
