@@ -17,6 +17,7 @@ local FILES = {
     controller = {
         "config.lua",
         "protocol.lua",
+        "state.lua",
         "coordinator.lua",
         "control.lua",
         "project-server.lua",
