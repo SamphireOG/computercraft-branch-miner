@@ -281,6 +281,8 @@ local scrollOffset = 0
 local running = true
 local lastUpdate = 0
 local showProjectSelector = false
+local lastMessageType = "none"  -- DEBUG: Track last message
+local messageCount = 0  -- DEBUG: Count messages
 
 -- ========== SCREEN HELPERS (continued) ==========
 
@@ -341,16 +343,22 @@ local function drawHeader()
     term.write(status)
     term.setTextColor(colorScheme.idle)
     term.write(" | Press 'P' for projects")
+    
+    -- DEBUG: Show message info
+    term.setCursorPos(1, 4)
+    term.clearLine()
+    term.setTextColor(colorScheme.warning)
+    term.write("DEBUG: Msgs:" .. messageCount .. " Last:" .. lastMessageType)
     term.setTextColor(colorScheme.text)
 end
 
 local function drawTurtleList()
     local w, h = term.getSize()
-    local listStart = 4
-    local listHeight = h - 7  -- Leave room for header and controls
+    local listStart = 5  -- Changed from 4 to 5 for debug line
+    local listHeight = h - 8  -- Changed from h - 7
     
     -- List header
-    term.setCursorPos(1, listStart - 1)
+    term.setCursorPos(1, listStart)
     term.setBackgroundColor(colorScheme.background)
     term.setTextColor(colorScheme.idle)
     term.clearLine()
@@ -366,7 +374,7 @@ local function drawTurtleList()
     
     for i = 1, listHeight do
         local idx = i + scrollOffset
-        local y = listStart + i - 1
+        local y = listStart + i
         
         term.setCursorPos(1, y)
         term.setBackgroundColor(colorScheme.background)
@@ -621,8 +629,8 @@ local function handleInput()
         
         -- Check if clicking in turtle list area
         local w, h = term.getSize()
-        local listStart = 4
-        local listHeight = h - 7
+        local listStart = 6  -- Account for debug line (header + debug + list header)
+        local listHeight = h - 8
         
         if y >= listStart and y < listStart + listHeight then
             -- Calculate which turtle was clicked
@@ -682,7 +690,7 @@ local function handleInput()
         for _ in pairs(turtles) do turtleCount = turtleCount + 1 end
         
         local w, h = term.getSize()
-        local maxScroll = math.max(0, turtleCount - (h - 7))
+        local maxScroll = math.max(0, turtleCount - (h - 8))
         
         if scrollOffset < maxScroll then
             scrollOffset = scrollOffset + 1
@@ -731,15 +739,16 @@ local function checkForMessages()
     -- Check for modem messages from turtles
     local event, side, channel, replyChannel, message, distance = os.pullEvent("modem_message")
     
+    -- DEBUG: Track any message
+    messageCount = messageCount + 1
+    
     if channel == config.MODEM_CHANNEL and type(message) == "table" then
         local msgType = message.type
         local turtleID = message.sender
         local data = message.data or {}
         
-        -- DEBUG: Show what we're comparing
-        term.setCursorPos(1, 1)
-        term.clearLine()
-        term.write("Type:" .. tostring(msgType) .. " Want:" .. tostring(protocol.MSG_TYPES.HEARTBEAT) .. " Match:" .. tostring(msgType == protocol.MSG_TYPES.HEARTBEAT))
+        -- DEBUG: Track message type
+        lastMessageType = tostring(msgType) or "unknown"
         
         if msgType == protocol.MSG_TYPES.HEARTBEAT then
             -- Update turtle status from heartbeat
@@ -758,11 +767,6 @@ local function checkForMessages()
                 lastSeen = os.epoch("utc"),
                 currentTask = data.currentTask or "Idle"
             }
-            
-            -- DEBUG: Confirm update
-            term.setCursorPos(1, 2)
-            term.clearLine()
-            term.write("UPDATED! ID:" .. turtleID .. " Status:" .. (data.status or "idle"))
         end
     end
 end
