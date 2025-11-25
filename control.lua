@@ -620,6 +620,7 @@ end
 local function showProjectSelector()
     clearScreen()
     local w, h = term.getSize()
+    local selectorRunning = true  -- Local variable for this screen only
     
     -- Fancy header
     term.setBackgroundColor(colors.blue)
@@ -644,20 +645,21 @@ local function showProjectSelector()
         print("")
         
         gui.createButton("back", math.floor(w/2 - 5), h - 2, 10, 1, "Go Back", function()
-            running = false  -- Trigger return
+            selectorRunning = false
         end, colors.gray, colors.white)
         gui.drawAllButtons()
         
-        while true do
+        while selectorRunning do
             local event = {os.pullEvent()}
             if event[1] == "mouse_click" then
                 if gui.handleClick(event[3], event[4]) then
-                    return
+                    selectorRunning = false
                 end
             elseif event[1] == "key" then
-                return
+                selectorRunning = false
             end
         end
+        return
     end
     
     term.setTextColor(colors.lime)
@@ -682,7 +684,7 @@ local function showProjectSelector()
             gui.createButton("proj_" .. i, 2, buttonY, w - 4, 3, "", function()
                 local success, err = switchProject(projName)
                 if success then
-                    running = false  -- Trigger return to reload
+                    selectorRunning = false  -- Exit selector to reload
                 end
             end, bgColor, textColor)
             
@@ -722,33 +724,30 @@ local function showProjectSelector()
     
     -- Back/Cancel button
     gui.createButton("cancel", 2, h - 2, 12, 1, "< Go Back", function()
-        running = false
+        selectorRunning = false
     end, colors.red, colors.white)
     
     -- Management button
     gui.createButton("manage", w - 14, h - 2, 12, 1, "Manage >>", function()
         projectManagementMenu()
-        running = false
+        selectorRunning = false
     end, colors.orange, colors.white)
     
     gui.drawAllButtons()
     
-    -- Handle interactions
-    local oldRunning = running
-    running = true
-    while running do
+    -- Handle interactions with local loop
+    while selectorRunning do
         local event = {os.pullEvent()}
         if event[1] == "mouse_click" then
             if gui.handleClick(event[3], event[4]) then
-                running = false
+                -- Button was clicked, it will set selectorRunning = false if needed
             end
         elseif event[1] == "mouse_drag" then
             gui.updateHover(event[3], event[4])
         elseif event[1] == "key" and event[2] == keys.q then
-            running = false
+            selectorRunning = false
         end
     end
-    running = oldRunning
 end
 
 -- ========== INPUT HANDLING ==========
