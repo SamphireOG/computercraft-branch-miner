@@ -452,6 +452,13 @@ function navigateToTunnelStart(assignment)
     local startPos = assignment.startPos
     print("Target: X=" .. startPos.x .. " Y=" .. startPos.y .. " Z=" .. startPos.z)
     
+    -- Check if we're already at the target
+    if currX == startPos.x and currY == startPos.y and currZ == startPos.z then
+        print("Already at tunnel start!")
+        utils.turnTo(0)  -- Face north
+        return true
+    end
+    
     local success = utils.goToPosition(startPos.x, startPos.y, startPos.z, true)
     
     if success then

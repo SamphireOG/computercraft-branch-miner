@@ -88,12 +88,13 @@ function utils.detectOrientation()
 end
 
 function utils.isNearHomeBase(x, y, z)
-    -- Check if position is within 2 blocks of home base
+    -- Check if position is within 3 blocks of home base (generous protection zone)
     local dx = math.abs(x - config.HOME_X)
     local dy = math.abs(y - config.HOME_Y)
     local dz = math.abs(z - config.HOME_Z)
     
-    return dx <= 2 and dy <= 2 and dz <= 2
+    -- Extra generous on Y-axis to protect fuel chest above and cobble chest below
+    return dx <= 3 and dy <= 3 and dz <= 3
 end
 
 -- ========== TURNING ==========
@@ -195,27 +196,44 @@ function utils.safeMove(direction, useBroadcast)
         
         -- Movement failed - check what's blocking
         if detectFunc() then
-            -- CHEST PROTECTION: Check if we're near home and block is a chest
+            -- CHEST PROTECTION: NEVER dig chests (they're our supply chests!)
             local success, blockData = inspectFunc()
             if success and blockData and blockData.name then
                 local isChest = blockData.name:match("chest") ~= nil
                 
-                -- Calculate target position
-                local targetX, targetY, targetZ = utils.position.x, utils.position.y, utils.position.z
-                if direction == "forward" then
-                    if utils.position.facing == 0 then targetZ = targetZ - 1
-                    elseif utils.position.facing == 1 then targetX = targetX + 1
-                    elseif utils.position.facing == 2 then targetZ = targetZ + 1
-                    else targetX = targetX - 1 end
-                elseif direction == "up" then
-                    targetY = targetY + 1
-                elseif direction == "down" then
-                    targetY = targetY - 1
-                end
-                
-                -- Protect chests near home base
-                if isChest and utils.isNearHomeBase(targetX, targetY, targetZ) then
-                    return false, "Blocked by protected chest near home base"
+                if isChest then
+                    -- Calculate where we are and where we're trying to go
+                    local targetX, targetY, targetZ = utils.position.x, utils.position.y, utils.position.z
+                    if direction == "forward" then
+                        if utils.position.facing == 0 then targetZ = targetZ - 1
+                        elseif utils.position.facing == 1 then targetX = targetX + 1
+                        elseif utils.position.facing == 2 then targetZ = targetZ + 1
+                        else targetX = targetX - 1 end
+                    elseif direction == "up" then
+                        targetY = targetY + 1
+                    elseif direction == "down" then
+                        targetY = targetY - 1
+                    end
+                    
+                    -- Check if chest is near home (within 3 blocks)
+                    local nearHome = utils.isNearHomeBase(targetX, targetY, targetZ)
+                    
+                    -- CRITICAL: Protect ALL chests near home, especially up/down/forward from start position
+                    if nearHome then
+                        print("⚠ CHEST PROTECTED at " .. targetX .. "," .. targetY .. "," .. targetZ)
+                        print("  Current pos: " .. utils.position.x .. "," .. utils.position.y .. "," .. utils.position.z)
+                        return false, "Blocked by protected supply chest (won't dig)"
+                    end
+                    
+                    -- Also protect any chest when we're very close to home position
+                    local atHome = (math.abs(utils.position.x) <= 1 and 
+                                   math.abs(utils.position.y - config.HOME_Y) <= 1 and 
+                                   math.abs(utils.position.z) <= 1)
+                    
+                    if atHome then
+                        print("⚠ CHEST PROTECTED (at home base)")
+                        return false, "Blocked by supply chest at home"
+                    end
                 end
             end
             
