@@ -563,14 +563,14 @@ local function drawHeader()
     
     -- Draw title (positioned to the right, leaving room for red button)
     local title = " \7 BRANCH MINER CONTROL \7 "
-    term.setCursorPos(w - #title - 4, 1)
+    term.setCursorPos(w - #title - 1, 1)
     term.write(title)
     
     -- Settings button in top right corner (red square with # icon)
     term.setBackgroundColor(colors.red)
     term.setTextColor(colors.white)
-    term.setCursorPos(w - 2, 1)
-    term.write(" # ")
+    term.setCursorPos(w, 1)
+    term.write("#")
     
     -- Reset colors
     term.setBackgroundColor(colors.blue)
@@ -1421,7 +1421,7 @@ local function mainLoop()
             local w, h = term.getSize()
             
             -- Check for settings button in header (top right corner - red square with #)
-            if y == 1 and x >= w - 2 and x <= w then
+            if y == 1 and x == w then
                 showProjectSettings()
                 drawScreen()
                 lastUpdate = os.clock()
