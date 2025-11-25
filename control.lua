@@ -141,19 +141,53 @@ local function createNewProject()
     term.setBackgroundColor(colors.black)
     term.setTextColor(colors.white)
     
+    -- Cancel button at bottom
+    gui.clearButtons()
+    gui.createButton("cancel_create", 2, h - 2, w - 4, 1, "< CANCEL (Press Q)", nil, colors.red, colors.white)
+    gui.drawAllButtons()
+    
     term.setCursorPos(2, 3)
     print("Project name:")
+    term.setTextColor(colors.gray)
     term.setCursorPos(2, 4)
+    print("(or press Q to cancel)")
     term.setBackgroundColor(colors.gray)
     term.setTextColor(colors.white)
+    term.setCursorPos(2, 5)
     term.write(string.rep(" ", w - 3))
-    term.setCursorPos(2, 4)
-    local projectName = read()
+    term.setCursorPos(2, 5)
+    
+    -- Listen for both input and Q key
+    local projectName = ""
+    while true do
+        local event, param1, param2, param3 = os.pullEvent()
+        if event == "char" then
+            if param1 == "q" or param1 == "Q" then
+                return false  -- Cancel
+            end
+            projectName = projectName .. param1
+            term.write(param1)
+        elseif event == "key" then
+            if param1 == keys.enter then
+                break
+            elseif param1 == keys.backspace and #projectName > 0 then
+                projectName = projectName:sub(1, -2)
+                local x, y = term.getCursorPos()
+                term.setCursorPos(x - 1, y)
+                term.write(" ")
+                term.setCursorPos(x - 1, y)
+            end
+        elseif event == "mouse_click" then
+            if gui.handleClick(param2, param3) then
+                return false  -- Cancel button clicked
+            end
+        end
+    end
     
     term.setBackgroundColor(colors.black)
     
     if projectName == "" then
-        term.setCursorPos(2, 6)
+        term.setCursorPos(2, 7)
         term.setTextColor(colors.red)
         print("Invalid name!")
         sleep(2)
@@ -162,7 +196,7 @@ local function createNewProject()
     
     -- Check if exists
     if loadProjectConfig(projectName) then
-        term.setCursorPos(2, 6)
+        term.setCursorPos(2, 7)
         term.setTextColor(colors.red)
         print("Project already exists!")
         sleep(2)
@@ -170,31 +204,51 @@ local function createNewProject()
     end
     
     term.setTextColor(colors.white)
-    term.setCursorPos(2, 6)
+    term.setCursorPos(2, 7)
     print("Tunnel length [64]:")
-    term.setCursorPos(2, 7)
+    term.setCursorPos(2, 8)
+    term.setTextColor(colors.gray)
+    print("(or Q to cancel)")
     term.setBackgroundColor(colors.gray)
-    term.write(string.rep(" ", w - 3))
-    term.setCursorPos(2, 7)
-    local length = tonumber(read()) or 64
-    
-    term.setBackgroundColor(colors.black)
+    term.setTextColor(colors.white)
     term.setCursorPos(2, 9)
-    print("Layers [3]:")
-    term.setCursorPos(2, 10)
-    term.setBackgroundColor(colors.gray)
     term.write(string.rep(" ", w - 3))
-    term.setCursorPos(2, 10)
-    local layers = tonumber(read()) or 3
+    term.setCursorPos(2, 9)
+    local lengthInput = read()
+    if lengthInput:lower() == "q" then return false end
+    local length = tonumber(lengthInput) or 64
     
     term.setBackgroundColor(colors.black)
+    term.setCursorPos(2, 11)
+    term.setTextColor(colors.white)
+    print("Layers [3]:")
     term.setCursorPos(2, 12)
-    print("Start Y [-59]:")
-    term.setCursorPos(2, 13)
+    term.setTextColor(colors.gray)
+    print("(or Q to cancel)")
     term.setBackgroundColor(colors.gray)
+    term.setTextColor(colors.white)
+    term.setCursorPos(2, 13)
     term.write(string.rep(" ", w - 3))
     term.setCursorPos(2, 13)
-    local startY = tonumber(read()) or -59
+    local layersInput = read()
+    if layersInput:lower() == "q" then return false end
+    local layers = tonumber(layersInput) or 3
+    
+    term.setBackgroundColor(colors.black)
+    term.setCursorPos(2, 15)
+    term.setTextColor(colors.white)
+    print("Start Y [-59]:")
+    term.setCursorPos(2, 16)
+    term.setTextColor(colors.gray)
+    print("(or Q to cancel)")
+    term.setBackgroundColor(colors.gray)
+    term.setTextColor(colors.white)
+    term.setCursorPos(2, 17)
+    term.write(string.rep(" ", w - 3))
+    term.setCursorPos(2, 17)
+    local startYInput = read()
+    if startYInput:lower() == "q" then return false end
+    local startY = tonumber(startYInput) or -59
     
     term.setBackgroundColor(colors.black)
     
@@ -211,10 +265,11 @@ local function createNewProject()
     }
     
     if saveProjectConfig(projectName, projectConfig) then
-        term.setCursorPos(2, 15)
+        term.setBackgroundColor(colors.black)
+        term.setCursorPos(2, 19)
         term.setTextColor(colors.lime)
         print("\7 Created!")
-        term.setCursorPos(2, 16)
+        term.setCursorPos(2, 20)
         term.setTextColor(colors.cyan)
         print("Channel: " .. channel)
         sleep(2)
@@ -223,7 +278,8 @@ local function createNewProject()
         projectServer.createProject(projectName, projectConfig)
         return true
     else
-        term.setCursorPos(2, 15)
+        term.setBackgroundColor(colors.black)
+        term.setCursorPos(2, 19)
         term.setTextColor(colors.red)
         print("Save failed!")
         sleep(2)
@@ -726,21 +782,9 @@ end
 -- ========== NETWORK FUNCTIONS ==========
 
 local function sendCommand(cmd, targetID)
-    print("Sending " .. cmd .. " to " .. (targetID or "ALL"))
-    
-    local success, msg, ack = protocol.sendWithRetry(cmd, {}, targetID, true)
-    
-    if success then
-        term.setTextColor(colorScheme.active)
-        print("Command acknowledged!")
-        term.setTextColor(colorScheme.text)
-        sleep(1)
-    else
-        term.setTextColor(colorScheme.error)
-        print("Command failed: No ACK")
-        term.setTextColor(colorScheme.text)
-        sleep(2)
-    end
+    -- Send command without blocking UI
+    protocol.sendWithRetry(cmd, {}, targetID, true)
+    -- Response will be handled automatically by message processing
 end
 
 local function updateTurtleData(msg)
@@ -769,8 +813,8 @@ end
 
 local function requestAllStatus()
     protocol.send(protocol.MSG_TYPES.CMD_STATUS_ALL, {})
-    print("Requesting status from all turtles...")
-    sleep(1)
+    -- Don't print or sleep - just send the request
+    -- The turtles will respond and update automatically
 end
 
 -- ========== PROJECT SELECTOR ==========
@@ -825,7 +869,7 @@ local function showProjectSelector()
     gui.clearButtons()
     
     for i, projName in ipairs(availableProjects) do
-        local summary = projectServer.getProjectSummary(projName)
+        local summary = projectServer.getProjectSummary(projName)   
         local isCurrent = currentProject and currentProject.name == projName
         
         if summary and summary.turtleCount > 0 then
@@ -1069,20 +1113,8 @@ local function cleanupOffline()
         removed = removed + 1
     end
     
-    -- Show result
-    if removed > 0 then
-        term.setCursorPos(1, 1)
-        term.setTextColor(colorScheme.active)
-        term.setBackgroundColor(colorScheme.background)
-        term.write("Removed " .. removed .. " offline turtle(s)")
-        sleep(1)
-    else
-        term.setCursorPos(1, 1)
-        term.setTextColor(colorScheme.text)
-        term.setBackgroundColor(colorScheme.background)
-        term.write("No offline turtles to remove")
-        sleep(1)
-    end
+    -- Don't show result - just silently clean up
+    -- The UI will automatically update on next refresh
 end
 
 local function removeTurtle(turtleID)
