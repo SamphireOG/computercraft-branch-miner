@@ -142,8 +142,19 @@ local function initializeMiner()
     print("Home: X=" .. config.HOME_X .. " Y=" .. config.HOME_Y .. " Z=" .. config.HOME_Z)
     print("START_Y=" .. config.START_Y)
     myState.homePosition = {x = config.HOME_X, y = config.HOME_Y, z = config.HOME_Z}
-    utils.setPosition(config.HOME_X, config.HOME_Y, config.HOME_Z, 0)
+    
+    -- ORIENTATION DETECTION: Find which way is forward by detecting chests
+    print("")
+    if utils.detectOrientation() then
+        utils.setPosition(config.HOME_X, config.HOME_Y, config.HOME_Z, utils.position.facing)
+    else
+        -- Fallback: assume facing north if detection fails
+        print("⚠ Using default orientation (North)")
+        utils.setPosition(config.HOME_X, config.HOME_Y, config.HOME_Z, 0)
+    end
     myState.position = utils.position
+    print("Facing: " .. utils.facingNames[utils.position.facing + 1])
+    print("")
     
     state.save(myState)
     print("Initialized!")
@@ -271,6 +282,118 @@ local function sendHeartbeat(force)
     protocol.sendHeartbeat(myState.status, myState.position, fuelData, inventoryData, currentTask)
 end
 
+-- ========== RESUPPLY ==========
+
+local function manageResupply()
+    print("=== Resupply ===")
+    
+    -- Deposit items
+    print("Depositing items...")
+    local deposited = utils.depositInventory(true)
+    print("Deposited " .. deposited .. " items")
+    
+    -- Refuel
+    print("Refueling...")
+    local fuelBefore = turtle.getFuelLevel()
+    utils.refuelFromChest()
+    print("Fuel: " .. fuelBefore .. " -> " .. turtle.getFuelLevel())
+    
+    -- Restock building blocks
+    print("Restocking building blocks...")
+    local restocked = utils.restockBuildingBlocks()
+    print("Restocked " .. restocked .. " building blocks")
+    
+    -- Update state
+    state.updateInventory(myState)
+    myState.needsResupply = false
+    
+    print("=== Resupply Complete ===")
+    return true
+end
+
+-- ========== PRE-FLIGHT CHECK ==========
+
+local function checkInventoryReady()
+    -- Check if turtle is ready to start mining
+    -- Returns: ready (boolean), reason (string)
+    
+    print("Pre-flight check...")
+    
+    -- Check slot 1 for cobblestone (building blocks)
+    turtle.select(1)
+    local slot1 = turtle.getItemDetail()
+    if not slot1 or slot1.count < 8 then
+        return false, "Need cobblestone in slot 1"
+    end
+    
+    -- Check slot 16 for fuel
+    turtle.select(16)
+    local slot16 = turtle.getItemDetail()
+    if not slot16 then
+        return false, "Need fuel in slot 16"
+    end
+    
+    -- Check fuel level
+    local fuelLevel = turtle.getFuelLevel()
+    if fuelLevel < config.MIN_FUEL then
+        return false, "Fuel too low: " .. fuelLevel .. " (need " .. config.MIN_FUEL .. ")"
+    end
+    
+    -- Check slots 2-15 are mostly empty (allow some items)
+    local usedSlots = 0
+    for slot = 2, 15 do
+        turtle.select(slot)
+        if turtle.getItemCount() > 0 then
+            usedSlots = usedSlots + 1
+        end
+    end
+    
+    if usedSlots > 10 then
+        return false, "Too many slots full (" .. usedSlots .. "/14). Need space for mining."
+    end
+    
+    print("Pre-flight check PASSED")
+    print("  Fuel: " .. fuelLevel)
+    print("  Cobble: " .. slot1.count .. " blocks")
+    print("  Free slots: " .. (14 - usedSlots) .. "/14")
+    
+    return true, "Ready"
+end
+
+local function ensureInventoryReady()
+    -- Check inventory and restock if needed
+    local ready, reason = checkInventoryReady()
+    
+    if not ready then
+        print("NOT READY: " .. reason)
+        print("Restocking...")
+        
+        -- Make sure we're at base
+        local atBase = (utils.position.x == myState.homePosition.x and 
+                       utils.position.y == myState.homePosition.y and 
+                       utils.position.z == myState.homePosition.z)
+        
+        if not atBase then
+            print("ERROR: Not at base, cannot restock")
+            print("Current: " .. utils.position.x .. "," .. utils.position.y .. "," .. utils.position.z)
+            print("Home: " .. myState.homePosition.x .. "," .. myState.homePosition.y .. "," .. myState.homePosition.z)
+            return false
+        end
+        
+        -- Restock
+        manageResupply()
+        
+        -- Check again
+        ready, reason = checkInventoryReady()
+        if not ready then
+            print("ERROR: Still not ready after restock: " .. reason)
+            return false
+        end
+    end
+    
+    return true
+end
+
 -- ========== NAVIGATION ==========
 
 function returnToBase()
@@ -316,35 +439,6 @@ function navigateToTunnelStart(assignment)
         print("Stuck at: X=" .. finalX .. " Y=" .. finalY .. " Z=" .. finalZ)
         return false
     end
-end
-
--- ========== RESUPPLY ==========
-
-local function manageResupply()
-    print("=== Resupply ===")
-    
-    -- Deposit items
-    print("Depositing items...")
-    local deposited = utils.depositInventory(true)
-    print("Deposited " .. deposited .. " items")
-    
-    -- Refuel
-    print("Refueling...")
-    local fuelBefore = turtle.getFuelLevel()
-    utils.refuelFromChest()
-    print("Fuel: " .. fuelBefore .. " -> " .. turtle.getFuelLevel())
-    
-    -- Restock building blocks
-    print("Restocking building blocks...")
-    local restocked = utils.restockBuildingBlocks()
-    print("Restocked " .. restocked .. " building blocks")
-    
-    -- Update state
-    state.updateInventory(myState)
-    myState.needsResupply = false
-    
-    print("=== Resupply Complete ===")
-    return true
 end
 
 -- ========== MINING ==========
@@ -395,6 +489,13 @@ local function mineTunnel(assignment)
     
     -- Navigate to start position (if not already there)
     if myState.blockProgress == 0 then
+        -- PRE-FLIGHT CHECK: Ensure inventory is ready before leaving base
+        if not ensureInventoryReady() then
+            print("ERROR: Cannot start - inventory not ready")
+            myState.status = "idle"
+            return false
+        end
+        
         if not navigateToTunnelStart(assignment) then
             return false
         end
@@ -440,6 +541,12 @@ local function mineTunnel(assignment)
             
             -- Resupply
             manageResupply()
+            
+            -- Verify inventory is ready after resupply
+            if not ensureInventoryReady() then
+                print("ERROR: Resupply failed - inventory still not ready")
+                return false
+            end
             
             -- Return to tunnel
             if not navigateToTunnelStart(assignment) then
@@ -552,11 +659,19 @@ local function mainLoop()
                     state.assignTunnel(myState, assignment.layer, assignment.tunnel,
                                       assignment.startPos, assignment.endPos)
                     state.save(myState)
-                    print("Got assignment: Layer " .. assignment.layer .. ", Tunnel " .. assignment.tunnel)
+                    print("✓ Assigned: Layer " .. assignment.layer .. ", Tunnel " .. assignment.tunnel)
                 else
                     print("No work available - waiting...")
                     sleep(10)
                 end
+            else
+                -- Already have an assignment - probably resuming after restart
+                print("✓ Resuming: Layer " .. myState.assignedTunnel.layer .. ", Tunnel " .. myState.assignedTunnel.tunnel)
+                print("  Progress: " .. myState.blockProgress .. "/" .. config.TUNNEL_LENGTH .. " blocks")
+                
+                -- Transition to mining status to actually mine the tunnel
+                myState.status = "mining"
+                state.save(myState)
             end
             
         elseif myState.status == "mining" then

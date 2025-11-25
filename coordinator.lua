@@ -98,7 +98,25 @@ end
 -- ========== WORK ASSIGNMENT ==========
 
 function coordinator.claimTunnel(turtleID)
-    -- Find next available tunnel
+    -- FIRST: Check if this turtle already has an unfinished assignment
+    -- This allows turtles to resume their work after restart
+    for _, assignment in ipairs(coordinator.workQueue) do
+        if assignment.assignedTo == turtleID and assignment.status == "assigned" then
+            -- Turtle is resuming its previous assignment
+            -- Silent for GUI mode
+            -- print("Turtle " .. turtleID .. " resuming " .. assignment.id)
+            
+            -- Update turtle record
+            if coordinator.activeTurtles[turtleID] then
+                coordinator.activeTurtles[turtleID].assignedWork = assignment.id
+                coordinator.activeTurtles[turtleID].status = "mining"
+            end
+            
+            return assignment
+        end
+    end
+    
+    -- SECOND: If no existing assignment, find next available tunnel
     for _, assignment in ipairs(coordinator.workQueue) do
         if assignment.status == "available" then
             -- Assign to turtle
@@ -140,7 +158,7 @@ end
 function coordinator.completeTunnel(assignmentID, blocksMined, oresFound)
     local assignment = coordinator.assignedWork[assignmentID]
     if not assignment then
-        -- Try to find in work queue
+        -- Try to find in work queue by ID
         for _, work in ipairs(coordinator.workQueue) do
             if work.id == assignmentID then
                 assignment = work
@@ -158,7 +176,7 @@ function coordinator.completeTunnel(assignmentID, blocksMined, oresFound)
         coordinator.completedWork[assignmentID] = assignment
         coordinator.assignedWork[assignmentID] = nil
         
-        -- Update turtle status
+        -- Update turtle status to idle so it can claim next tunnel
         if assignment.assignedTo and coordinator.activeTurtles[assignment.assignedTo] then
             coordinator.activeTurtles[assignment.assignedTo].assignedWork = nil
             coordinator.activeTurtles[assignment.assignedTo].status = "idle"
@@ -169,6 +187,8 @@ function coordinator.completeTunnel(assignmentID, blocksMined, oresFound)
         return true
     end
     
+    -- Silent failure for GUI mode
+    -- print("Warning: Could not find assignment " .. tostring(assignmentID))
     return false
 end
 

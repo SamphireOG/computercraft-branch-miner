@@ -320,7 +320,11 @@ function protocol.claimTunnel()
 end
 
 function protocol.reportTunnelComplete(layer, tunnel, blocksMined, oresFound)
+    -- Create assignmentID matching coordinator's format
+    local assignmentID = "L" .. layer .. "T" .. tunnel
+    
     local data = {
+        assignmentID = assignmentID,
         layer = layer,
         tunnel = tunnel,
         blocksMined = blocksMined,

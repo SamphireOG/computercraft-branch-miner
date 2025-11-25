@@ -26,6 +26,60 @@ function utils.getPosition()
     return utils.position.x, utils.position.y, utils.position.z, utils.position.facing
 end
 
+-- ========== ORIENTATION DETECTION ==========
+
+function utils.isChest(direction)
+    -- Check if there's a chest in the specified direction
+    local inspectFunc = direction == "forward" and turtle.inspect or
+                       direction == "up" and turtle.inspectUp or
+                       turtle.inspectDown
+    
+    local success, blockData = inspectFunc()
+    if success and blockData and blockData.name then
+        return blockData.name:match("chest") ~= nil
+    end
+    return false
+end
+
+function utils.detectOrientation()
+    -- Detect turtle's facing direction by checking for chests
+    -- Expected setup: Ores chest in FRONT (south/+Z), Fuel chest ABOVE, Cobble chest BELOW
+    
+    print("Detecting orientation from chests...")
+    
+    -- Check all 4 directions for the ores chest
+    for facing = 0, 3 do
+        if utils.isChest("forward") then
+            -- Found chest in front - this should be the ores chest (south)
+            -- So we're facing SOUTH (facing = 2)
+            local correctFacing = 2
+            local turnsNeeded = (correctFacing - facing) % 4
+            
+            for i = 1, turnsNeeded do
+                turtle.turnRight()
+            end
+            
+            utils.position.facing = 2  -- Now facing south (toward ores chest)
+            print("✓ Orientation detected: Facing South (toward ores chest)")
+            return true
+        end
+        turtle.turnRight()
+    end
+    
+    print("⚠ Could not detect orientation - no chest found")
+    print("  Make sure ores chest is placed in front of turtle")
+    return false
+end
+
+function utils.isNearHomeBase(x, y, z)
+    -- Check if position is within 2 blocks of home base
+    local dx = math.abs(x - config.HOME_X)
+    local dy = math.abs(y - config.HOME_Y)
+    local dz = math.abs(z - config.HOME_Z)
+    
+    return dx <= 2 and dy <= 2 and dz <= 2
+end
+
 -- ========== TURNING ==========
 
 function utils.turnRight()
@@ -83,22 +137,25 @@ function utils.safeMove(direction, useBroadcast)
     end
     
     -- Select movement functions
-    local moveFunc, digFunc, detectFunc, attackFunc
+    local moveFunc, digFunc, detectFunc, attackFunc, inspectFunc
     if direction == "forward" then
         moveFunc = turtle.forward
         digFunc = turtle.dig
         detectFunc = turtle.detect
         attackFunc = turtle.attack
+        inspectFunc = turtle.inspect
     elseif direction == "up" then
         moveFunc = turtle.up
         digFunc = turtle.digUp
         detectFunc = turtle.detectUp
         attackFunc = turtle.attackUp
+        inspectFunc = turtle.inspectUp
     elseif direction == "down" then
         moveFunc = turtle.down
         digFunc = turtle.digDown
         detectFunc = turtle.detectDown
         attackFunc = turtle.attackDown
+        inspectFunc = turtle.inspectDown
     else
         return false, "Invalid direction"
     end
@@ -122,7 +179,31 @@ function utils.safeMove(direction, useBroadcast)
         
         -- Movement failed - check what's blocking
         if detectFunc() then
-            -- Block detected - try to dig it
+            -- CHEST PROTECTION: Check if we're near home and block is a chest
+            local success, blockData = inspectFunc()
+            if success and blockData and blockData.name then
+                local isChest = blockData.name:match("chest") ~= nil
+                
+                -- Calculate target position
+                local targetX, targetY, targetZ = utils.position.x, utils.position.y, utils.position.z
+                if direction == "forward" then
+                    if utils.position.facing == 0 then targetZ = targetZ - 1
+                    elseif utils.position.facing == 1 then targetX = targetX + 1
+                    elseif utils.position.facing == 2 then targetZ = targetZ + 1
+                    else targetX = targetX - 1 end
+                elseif direction == "up" then
+                    targetY = targetY + 1
+                elseif direction == "down" then
+                    targetY = targetY - 1
+                end
+                
+                -- Protect chests near home base
+                if isChest and utils.isNearHomeBase(targetX, targetY, targetZ) then
+                    return false, "Blocked by protected chest near home base"
+                end
+            end
+            
+            -- Block detected - try to dig it (not a protected chest)
             digFunc()
             sleep(0.4)  -- Wait for falling blocks
         else
