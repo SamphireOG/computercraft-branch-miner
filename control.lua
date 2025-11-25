@@ -561,9 +561,9 @@ local function drawHeader()
     term.setTextColor(colors.white)
     term.clearLine()
     
-    -- Draw title centered
+    -- Draw title (left-aligned to avoid overlap)
     local title = " \7 BRANCH MINER CONTROL \7 "
-    term.setCursorPos(math.floor((w - #title) / 2), 1)
+    term.setCursorPos(2, 1)
     term.write(title)
     
     -- Settings button in top right corner (red square with # icon)
