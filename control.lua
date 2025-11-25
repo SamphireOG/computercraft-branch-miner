@@ -868,6 +868,7 @@ function showProjectSelector()
     
     local selectableProjects = {}
     local buttonY = 6
+    local projectCards = {}  -- Store card info to draw after buttons
     gui.clearButtons()
     
     for i, projName in ipairs(availableProjects) do
@@ -885,29 +886,15 @@ function showProjectSelector()
                 switchProject(projName)
             end, bgColor, textColor)
             
-            -- Draw custom project card
-            term.setCursorPos(3, buttonY)
-            term.setBackgroundColor(bgColor)
-            term.setTextColor(colors.white)
-            term.write(string.rep(" ", w - 6))
-            
-            term.setCursorPos(3, buttonY + 1)
-            local nameText = (isCurrent and "\16 " or "  ") .. summary.name
-            term.write(" " .. nameText)
-            term.setCursorPos(w - 15, buttonY + 1)
-            term.setBackgroundColor(colors.lightGray)
-            term.setTextColor(colors.black)
-            term.write(" Ch:" .. summary.channel .. " ")
-            term.setBackgroundColor(bgColor)
-            term.write(" ")
-            
-            term.setCursorPos(3, buttonY + 2)
-            term.setTextColor(colors.lightGray)
-            term.write("   " .. summary.turtleCount .. " turtle(s)")
-            term.setTextColor(colors.white)
-            term.setCursorPos(3, buttonY + 3)
-            term.setBackgroundColor(bgColor)
-            term.write(string.rep(" ", w - 6))
+            -- Store card info to draw after gui.drawAllButtons()
+            table.insert(projectCards, {
+                y = buttonY,
+                name = summary.name,
+                channel = summary.channel,
+                turtles = summary.turtleCount,
+                isCurrent = isCurrent,
+                bgColor = bgColor
+            })
             
             buttonY = buttonY + 4
         end
@@ -928,6 +915,35 @@ function showProjectSelector()
     end, colors.orange, colors.white)
     
     gui.drawAllButtons()
+    
+    -- Draw project card text AFTER buttons
+    for _, card in ipairs(projectCards) do
+        local buttonY = card.y
+        local bgColor = card.bgColor
+        
+        term.setCursorPos(3, buttonY)
+        term.setBackgroundColor(bgColor)
+        term.setTextColor(colors.white)
+        term.write(string.rep(" ", w - 6))
+        
+        term.setCursorPos(3, buttonY + 1)
+        local nameText = (card.isCurrent and "\16 " or "  ") .. card.name
+        term.write(" " .. nameText)
+        term.setCursorPos(w - 15, buttonY + 1)
+        term.setBackgroundColor(colors.lightGray)
+        term.setTextColor(colors.black)
+        term.write(" Ch:" .. card.channel .. " ")
+        term.setBackgroundColor(bgColor)
+        term.write(" ")
+        
+        term.setCursorPos(3, buttonY + 2)
+        term.setTextColor(colors.lightGray)
+        term.write("   " .. card.turtles .. " turtle(s)")
+        term.setTextColor(colors.white)
+        term.setCursorPos(3, buttonY + 3)
+        term.setBackgroundColor(bgColor)
+        term.write(string.rep(" ", w - 6))
+    end
     
     -- Handle interactions with local loop variable
     local selectorRunning = true
