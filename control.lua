@@ -495,7 +495,6 @@ local selectedTurtle = nil
 local scrollOffset = 0
 local running = true
 local lastUpdate = 0
-local showProjectSelector = false
 
 -- ========== SCREEN HELPERS (continued) ==========
 
