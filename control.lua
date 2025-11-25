@@ -731,9 +731,16 @@ local function checkForMessages()
     -- Check for modem messages from turtles
     local event, side, channel, replyChannel, message, distance = os.pullEvent("modem_message")
     
+    -- DEBUG: Show all received messages
+    if type(message) == "table" then
+        term.setCursorPos(1, 1)
+        term.write("MSG Ch:" .. channel .. " Type:" .. tostring(message.type) .. "      ")
+    end
+    
     if channel == config.MODEM_CHANNEL and type(message) == "table" then
         local msgType = message.type
-        local turtleID = message.senderId
+        local turtleID = message.sender  -- Fixed: was senderId, should be sender
+        local data = message.data or {}
         
         if msgType == protocol.MSG_TYPES.HEARTBEAT then
             -- Update turtle status from heartbeat
@@ -743,14 +750,14 @@ local function checkForMessages()
             
             turtles[turtleID] = {
                 id = turtleID,
-                label = message.label or ("Turtle-" .. turtleID),
-                status = message.status or "idle",
-                position = message.position or {x = 0, y = 0, z = 0},
-                fuel = message.fuel and message.fuel.level or 0,
-                fuelPercent = message.fuel and message.fuel.percent or 0,
-                inventory = message.inventory and message.inventory.freeSlots or 0,
+                label = message.senderLabel or ("Turtle-" .. turtleID),
+                status = data.status or "idle",
+                position = data.position or {x = 0, y = 0, z = 0},
+                fuel = data.fuel and data.fuel.level or 0,
+                fuelPercent = data.fuel and data.fuel.percent or 0,
+                inventory = data.inventory and data.inventory.freeSlots or 0,
                 lastSeen = os.epoch("utc"),
-                currentTask = message.currentTask or "Idle"
+                currentTask = data.currentTask or "Idle"
             }
         end
     end
