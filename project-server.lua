@@ -301,5 +301,21 @@ function server.runBackground()
     end
 end
 
+function server.update()
+    -- Process pending messages without blocking
+    -- Used when running alongside main controller loop
+    os.startTimer(0) -- Trigger immediate timer event
+    local event = os.pullEvent("timer")
+    -- Any incoming modem messages will be queued for next update
+end
+
+function server.stop()
+    -- Stop the server and close modem
+    server.isRunning = false
+    if protocol and protocol.modem then
+        protocol.modem.close(server.DISCOVERY_CHANNEL)
+    end
+end
+
 return server
 
