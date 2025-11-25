@@ -18,10 +18,11 @@ local function getAssignmentFilename()
     return "turtle_assignment.cfg"
 end
 
-function client.saveAssignment(projectName, channel)
+function client.saveAssignment(projectName, channel, startY)
     local assignment = {
         projectName = projectName,
         channel = channel,
+        startY = startY,  -- Save Y level so turtle knows its position without GPS
         assignedAt = os.epoch("utc"),
         turtleID = os.getComputerID(),
         label = os.getComputerLabel()
@@ -172,8 +173,8 @@ function client.joinProject(projectName)
                         os.cancelTimer(timer)
                         
                         if message.success then
-                            -- Save assignment
-                            client.saveAssignment(message.projectName, message.channel)
+                            -- Save assignment (including startY for position tracking)
+                            client.saveAssignment(message.projectName, message.channel, message.startY)
                             
                             -- Send confirmation
                             protocol.modem.transmit(DISCOVERY_CHANNEL, DISCOVERY_CHANNEL, {

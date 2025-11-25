@@ -205,13 +205,14 @@ function server.handleJoinRequest(message)
     
     server.saveAssignments()
     
-    -- Send response
+    -- Send response (include startY so turtle knows its Y position)
     protocol.modem.transmit(DISCOVERY_CHANNEL, DISCOVERY_CHANNEL, {
         type = protocol.MSG_TYPES.PROJECT_JOIN_RESPONSE,
         senderId = os.getComputerID(),
         targetId = turtleID,
         projectName = projectName,
         channel = project.channel,
+        startY = project.startY,  -- Critical: turtle needs this for position tracking
         isFirstTurtle = isFirstTurtle,
         success = true
     })

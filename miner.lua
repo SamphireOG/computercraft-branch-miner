@@ -39,6 +39,13 @@ local function initializeMiner()
         print("Channel: " .. assignment.channel)
         print("")
         
+        -- IMPORTANT: Load Y level from project (since we don't have GPS)
+        if assignment.startY then
+            config.START_Y = assignment.startY
+            config.HOME_Y = assignment.startY  -- Turtle is placed at this Y level
+            print("Y Level: " .. assignment.startY)
+        end
+        
         -- Close old modem connection and switch to project channel
         protocol.close()
         config.MODEM_CHANNEL = assignment.channel
