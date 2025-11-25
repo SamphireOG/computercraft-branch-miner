@@ -136,6 +136,22 @@ local colorScheme = {
     text = colors.white
 }
 
+-- Debug message persistence
+local lastDebugMessage = nil
+local lastDebugColor = colors.black
+
+local function drawDebugMessage()
+    if lastDebugMessage then
+        local w, h = term.getSize()
+        term.setCursorPos(1, h)
+        term.setBackgroundColor(lastDebugColor)
+        term.clearLine()
+        term.setTextColor(lastDebugColor == colors.lime and colors.black or colors.white)
+        term.write(" " .. lastDebugMessage .. " ")
+        term.setBackgroundColor(colors.black)
+    end
+end
+
 local function clearScreen()
     term.setBackgroundColor(colorScheme.background)
     term.setTextColor(colorScheme.text)
@@ -830,6 +846,7 @@ function drawScreen()
     drawHeader()
     drawTurtleList()
     drawControls()
+    drawDebugMessage()  -- Draw persistent debug message at bottom
     
     -- Final cursor positioning to prevent accidental overwrites
     local w, h = term.getSize()
@@ -1392,15 +1409,9 @@ local function mainLoop()
                     
                 elseif msgType == protocol.MSG_TYPES.CLAIM_TUNNEL then
                     pcall(function()
-                        local w, h = term.getSize()
-                        local debugY = h  -- Bottom line, below buttons
-                        
-                        -- Debug: Log work request
-                        term.setCursorPos(1, debugY)
-                        term.setBackgroundColor(colors.black)
-                        term.clearLine()
-                        term.setTextColor(colors.yellow)
-                        term.write("Work requested by turtle " .. tostring(turtleID))
+                        -- Set debug message
+                        lastDebugMessage = "Work requested by turtle " .. tostring(turtleID)
+                        lastDebugColor = colors.yellow
                         
                         local assignment = coordinator.claimTunnel(turtleID)
                         if assignment then
@@ -1408,21 +1419,17 @@ local function mainLoop()
                                 assignment = assignment
                             }, turtleID)
                             
-                            -- Debug: Log assignment
-                            term.setCursorPos(1, debugY)
-                            term.setBackgroundColor(colors.lime)
-                            term.clearLine()
-                            term.setTextColor(colors.black)
-                            term.write(" Assigned " .. assignment.id .. " to turtle " .. tostring(turtleID) .. " ")
+                            -- Update debug message
+                            lastDebugMessage = "Assigned " .. assignment.id .. " to turtle " .. tostring(turtleID)
+                            lastDebugColor = colors.lime
                         else
-                            -- Debug: No work available
-                            term.setCursorPos(1, debugY)
-                            term.setBackgroundColor(colors.red)
-                            term.clearLine()
-                            term.setTextColor(colors.white)
-                            term.write(" No work available for turtle " .. tostring(turtleID) .. " ")
+                            -- Update debug message
+                            lastDebugMessage = "No work available for turtle " .. tostring(turtleID)
+                            lastDebugColor = colors.red
                         end
-                        term.setBackgroundColor(colors.black)
+                        
+                        -- Redraw to show debug message
+                        drawDebugMessage()
                     end)
                     
                 elseif msgType == protocol.MSG_TYPES.TUNNEL_COMPLETE then
