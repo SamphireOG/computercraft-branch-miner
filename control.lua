@@ -1392,11 +1392,29 @@ local function mainLoop()
                     
                 elseif msgType == protocol.MSG_TYPES.CLAIM_TUNNEL then
                     pcall(function()
+                        -- Debug: Log work request
+                        term.setCursorPos(1, 2)
+                        term.clearLine()
+                        term.setTextColor(colors.yellow)
+                        term.write("Work requested by turtle " .. tostring(turtleID))
+                        
                         local assignment = coordinator.claimTunnel(turtleID)
                         if assignment then
                             protocol.send(protocol.MSG_TYPES.TUNNEL_ASSIGNED, {
                                 assignment = assignment
                             }, turtleID)
+                            
+                            -- Debug: Log assignment
+                            term.setCursorPos(1, 2)
+                            term.clearLine()
+                            term.setTextColor(colors.lime)
+                            term.write("Assigned " .. assignment.id .. " to turtle " .. tostring(turtleID))
+                        else
+                            -- Debug: No work available
+                            term.setCursorPos(1, 2)
+                            term.clearLine()
+                            term.setTextColor(colors.red)
+                            term.write("No work available for turtle " .. tostring(turtleID))
                         end
                     end)
                     
