@@ -443,14 +443,18 @@ local function drawControls()
     term.setTextColor(colorScheme.text)
     
     if selectedTurtle then
-        term.write("[P]ause [R]esume [H]ome [S]hutdown")
+        term.write("[P]ause [R]esume [H]ome")
     else
-        term.write("[A]ll Pause [Z]All Resume [Q]uit [Up/Down]Select")
+        term.write("[A]ll Pause [Z]All Resume [Q]uit")
     end
     
     term.setCursorPos(1, controlY + 2)
     term.clearLine()
-    term.write("[F]Refresh Status [C]lear Offline")
+    
+    if selectedTurtle then
+        term.write("[S]hutdown [X]Remove [F]Refresh")
+    else
+        term.write("[F]Refresh [C]lear Offline [Up/Down]")
 end
 
 local function drawScreen()
@@ -700,6 +704,10 @@ local function handleInput()
             if confirm == "y" or confirm == "Y" then
                 sendCommand(protocol.MSG_TYPES.CMD_SHUTDOWN, selectedTurtle)
             end
+            
+        elseif key == keys.x then
+            -- Remove turtle
+            removeTurtle(selectedTurtle)
         end
     end
 end
@@ -794,6 +802,72 @@ local function cleanupOffline()
         term.setBackgroundColor(colorScheme.background)
         term.write("No offline turtles to remove")
         sleep(1)
+    end
+end
+
+local function removeTurtle(turtleID)
+    -- Get turtle info for confirmation
+    local turtle = turtles[turtleID]
+    if not turtle then
+        return
+    end
+    
+    -- Show confirmation prompt
+    clearScreen()
+    term.setCursorPos(1, 1)
+    term.setTextColor(colorScheme.error)
+    term.write("REMOVE TURTLE?")
+    
+    term.setCursorPos(1, 3)
+    term.setTextColor(colorScheme.text)
+    term.write("ID: " .. turtleID)
+    
+    term.setCursorPos(1, 4)
+    term.write("Label: " .. (turtle.label or "Unknown"))
+    
+    term.setCursorPos(1, 5)
+    term.write("Status: " .. (turtle.status or "Unknown"))
+    
+    term.setCursorPos(1, 7)
+    term.setTextColor(colorScheme.warning)
+    term.write("This will permanently")
+    
+    term.setCursorPos(1, 8)
+    term.write("remove this turtle from")
+    
+    term.setCursorPos(1, 9)
+    term.write("the project.")
+    
+    term.setCursorPos(1, 11)
+    term.setTextColor(colorScheme.text)
+    term.write("Continue? (Y/N)")
+    
+    -- Wait for confirmation
+    local confirm = os.pullEvent("char")
+    
+    if confirm == "y" or confirm == "Y" then
+        -- Remove from local table
+        turtles[turtleID] = nil
+        
+        -- Remove from project server
+        if currentProject then
+            projectServer.removeTurtle(currentProject.name, turtleID)
+        end
+        
+        -- Clear selection
+        selectedTurtle = nil
+        
+        -- Show success
+        term.setCursorPos(1, 13)
+        term.setTextColor(colorScheme.active)
+        term.write("Turtle removed!")
+        sleep(1)
+    else
+        -- Cancelled
+        term.setCursorPos(1, 13)
+        term.setTextColor(colorScheme.text)
+        term.write("Cancelled")
+        sleep(0.5)
     end
 end
 
