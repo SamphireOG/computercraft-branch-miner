@@ -561,20 +561,19 @@ local function drawHeader()
     term.setTextColor(colors.white)
     term.clearLine()
     
-    -- Draw title starting from left
-    local title = "\7 BRANCH MINER CONTROL "
+    -- Draw title centered
+    local title = " \7 BRANCH MINER CONTROL \7 "
     term.setCursorPos(math.floor((w - #title) / 2), 1)
     term.write(title)
     
-    -- Settings button in top right corner (single red square with # icon)
-    term.setCursorPos(w, 1)
+    -- Settings button in top right corner (red square with # icon)
+    term.setCursorPos(w - 1, 1)
     term.setBackgroundColor(colors.red)
     term.setTextColor(colors.white)
     term.write("#")
-    
-    -- Reset colors
+    term.setCursorPos(w, 1)
+    term.write(" ")
     term.setBackgroundColor(colors.blue)
-    term.setTextColor(colors.white)
     
     -- Status line
     term.setCursorPos(1, 2)
@@ -1420,8 +1419,8 @@ local function mainLoop()
             local y = event[4]
             local w, h = term.getSize()
             
-            -- Check for settings button in header (top right corner - red square with #)
-            if y == 1 and x == w then
+            -- Check for settings button in header (top right corner - red square)
+            if y == 1 and x >= w - 1 and x <= w then
                 showProjectSettings()
                 drawScreen()
                 lastUpdate = os.clock()
