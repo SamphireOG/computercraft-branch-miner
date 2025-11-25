@@ -563,13 +563,14 @@ local function drawHeader()
     
     -- Draw title (positioned to the right, leaving room for red button)
     local title = " \7 BRANCH MINER CONTROL \7 "
-    term.setCursorPos(w - #title - 1, 1)
+    local titleStart = math.max(2, w - #title - 1)  -- Ensure title doesn't go off-screen
+    term.setCursorPos(titleStart, 1)
     term.write(title)
     
-    -- Settings button in top right corner (red square with # icon)
+    -- Settings button in top right corner (single red square with # icon)
+    term.setCursorPos(w, 1)
     term.setBackgroundColor(colors.red)
     term.setTextColor(colors.white)
-    term.setCursorPos(w, 1)
     term.write("#")
     
     -- Reset colors
