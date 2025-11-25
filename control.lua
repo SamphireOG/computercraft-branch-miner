@@ -498,6 +498,10 @@ local lastUpdate = 0
 
 -- Forward declarations for functions used in button callbacks
 local showProjectSelector
+local sendCommand
+local requestAllStatus
+local cleanupOffline
+local removeTurtle
 
 -- ========== SCREEN HELPERS (continued) ==========
 
@@ -783,7 +787,7 @@ end
 
 -- ========== NETWORK FUNCTIONS ==========
 
-local function sendCommand(cmd, targetID)
+function sendCommand(cmd, targetID)
     -- Send command without blocking UI
     protocol.sendWithRetry(cmd, {}, targetID, true)
     -- Response will be handled automatically by message processing
@@ -813,7 +817,7 @@ local function updateTurtleData(msg)
     end
 end
 
-local function requestAllStatus()
+function requestAllStatus()
     protocol.send(protocol.MSG_TYPES.CMD_STATUS_ALL, {})
     -- Don't print or sleep - just send the request
     -- The turtles will respond and update automatically
@@ -1093,7 +1097,7 @@ local function checkOfflineTurtles()
     end
 end
 
-local function cleanupOffline()
+function cleanupOffline()
     local now = os.epoch("utc")
     local removeThreshold = 300000 -- 5 minutes in milliseconds
     local removed = 0
@@ -1124,7 +1128,7 @@ local function cleanupOffline()
     -- The UI will automatically update on next refresh
 end
 
-local function removeTurtle(turtleID)
+function removeTurtle(turtleID)
     -- Get turtle info
     local turtle = turtles[turtleID]
     if not turtle then
