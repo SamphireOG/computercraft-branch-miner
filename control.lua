@@ -518,6 +518,7 @@ local sendCommand
 local requestAllStatus
 local cleanupOffline
 local removeTurtle
+local drawScreen
 
 -- ========== SCREEN HELPERS (continued) ==========
 
@@ -822,7 +823,7 @@ local function drawControls()
     term.setCursorPos(1, h)
 end
 
-local function drawScreen()
+function drawScreen()
     clearScreen()
     drawHeader()
     drawTurtleList()
