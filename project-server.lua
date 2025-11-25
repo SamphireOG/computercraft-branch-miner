@@ -193,6 +193,8 @@ function server.handleJoinRequest(message)
     -- (Turtle join logged internally)
 end
 
+-- Note: Join requests are handled in interactive pairing mode in control.lua
+-- This function handles other message types
 function server.handleMessage(message)
     if not message or not message.type then
         return
@@ -203,8 +205,8 @@ function server.handleMessage(message)
         server.broadcastProjects()
         
     elseif message.type == protocol.MSG_TYPES.PROJECT_JOIN_REQUEST then
-        -- Handle turtle joining project
-        server.handleJoinRequest(message)
+        -- Join requests are handled manually in pairing mode
+        -- Ignore here to prevent auto-acceptance
         
     elseif message.type == protocol.MSG_TYPES.TURTLE_ONLINE then
         -- Update last seen time

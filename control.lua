@@ -826,22 +826,117 @@ local function init()
         local choice = read()
         
         if choice == "1" then
-            -- Manual pairing mode
+            -- Interactive pairing mode
             print("")
-            print("Broadcasting...")
-            print("Run installer on turtle now!")
+            print("PAIRING MODE")
+            print("Run installer on turtle")
+            print("")
+            print("Listening for turtles...")
+            print("(Press Q to cancel)")
             print("")
             
-            -- Broadcast for 30 seconds
-            for i = 1, 30 do
-                projectServer.broadcastProjects()
-                sleep(1)
-                term.write(".")
+            -- Pairing loop
+            local startTime = os.clock()
+            local timeout = 60 -- 60 seconds
+            local lastBroadcast = 0
+            
+            while os.clock() - startTime < timeout do
+                -- Broadcast every second
+                local now = os.clock()
+                if now - lastBroadcast >= 1 then
+                    projectServer.broadcastProjects()
+                    lastBroadcast = now
+                end
+                
+                -- Check for events (with 0.5s timeout)
+                local event, p1, p2, p3, p4, p5 = os.pullEvent()
+                
+                -- Handle quit key
+                if event == "char" and p1 == "q" then
+                    break
+                end
+                
+                -- Check for join requests
+                if event == "modem_message" and p2 == 100 and type(p4) == "table" then
+                    local channel = p2
+                    local message = p4
+                    if message.type == "PROJECT_JOIN_REQUEST" then
+                        local turtleID = message.senderId
+                        local turtleLabel = message.label or ("Turtle-" .. turtleID)
+                        local projectName = message.projectName
+                        
+                        print("")
+                        print("Turtle requesting to join:")
+                        print("  ID: " .. turtleID)
+                        print("  Label: " .. turtleLabel)
+                        print("  Project: " .. projectName)
+                        print("")
+                        print("Accept? (Y/N)")
+                        
+                        local accept = read()
+                        
+                        if accept:lower() == "y" then
+                            -- Approve the turtle
+                            local project = loadProjectConfig(projectName)
+                            if project then
+                                -- Add to assignments
+                                projectServer.assignments = projectServer.assignments or {}
+                                projectServer.assignments[projectName] = projectServer.assignments[projectName] or {}
+                                
+                                local isFirstTurtle = projectServer.getTurtleCount(projectName) == 0
+                                
+                                projectServer.assignments[projectName][turtleID] = {
+                                    label = turtleLabel,
+                                    lastSeen = os.epoch("utc"),
+                                    joinedAt = os.epoch("utc")
+                                }
+                                
+                                projectServer.saveAssignments()
+                                
+                                -- Send approval
+                                protocol.modem.transmit(100, 100, {
+                                    type = "PROJECT_JOIN_RESPONSE",
+                                    senderId = os.getComputerID(),
+                                    targetId = turtleID,
+                                    projectName = projectName,
+                                    channel = project.channel,
+                                    isFirstTurtle = isFirstTurtle,
+                                    success = true
+                                })
+                                
+                                print("")
+                                print("Turtle paired!")
+                                sleep(2)
+                            end
+                        else
+                            -- Send rejection
+                            protocol.modem.transmit(100, 100, {
+                                type = "NACK",
+                                senderId = os.getComputerID(),
+                                targetId = turtleID,
+                                reason = "Rejected by user"
+                            })
+                            
+                            print("")
+                            print("Turtle rejected.")
+                            sleep(1)
+                        end
+                        
+                        print("")
+                        print("Continue pairing? (Y/N)")
+                        local cont = read()
+                        if cont:lower() ~= "y" then
+                            break
+                        end
+                        
+                        print("")
+                        print("Listening for turtles...")
+                    end
+                end
             end
             
             print("")
-            print("")
-            print("Pairing window closed.")
+            print("Pairing mode closed.")
             sleep(2)
             return false -- Return to restart
         elseif choice == "2" then
