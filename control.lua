@@ -271,14 +271,9 @@ local function deleteProject()
             break  -- Don't overflow screen
         end
         
-        gui.createButton("del_proj_" .. i, 2, startY + (i-1) * 2, w - 4, 2, "", function()
+        gui.createButton("del_proj_" .. i, 2, startY + (i-1) * 2, w - 4, 2, proj, function()
             selectedProject = proj
         end, colors.gray, colors.white)
-        
-        term.setCursorPos(3, startY + (i-1) * 2)
-        term.setBackgroundColor(colors.gray)
-        term.setTextColor(colors.white)
-        term.write(" " .. proj)
     end
     
     -- Cancel button
@@ -328,7 +323,7 @@ local function deleteProject()
     gui.clearButtons()
     
     -- Confirm button
-    gui.createButton("confirm_del", 2, h - 5, w - 4, 2, "", function()
+    gui.createButton("confirm_del", 2, h - 5, w - 4, 2, "YES, DELETE IT", function()
         -- Delete project file
         local filename = getProjectFilename(selectedProject)
         if fs.exists(filename) then
@@ -352,11 +347,6 @@ local function deleteProject()
         
         deleteRunning = false
     end, colors.red, colors.white)
-    
-    term.setCursorPos(3, h - 4)
-    term.setBackgroundColor(colors.red)
-    term.setTextColor(colors.white)
-    term.write(" YES, DELETE IT")
     
     -- Cancel button
     gui.createButton("cancel_confirm", 2, h - 2, w - 4, 1, "< NO, GO BACK", function()
@@ -406,12 +396,12 @@ local function projectManagementMenu()
         gui.clearButtons()
         
         -- Create project button
-        gui.createButton("create", 2, 7, w - 4, 3, "", function()
+        gui.createButton("create", 2, 7, w - 4, 3, "+ CREATE PROJECT", function()
             createNewProject()
         end, colors.lime, colors.black)
         
         -- Delete project button
-        gui.createButton("delete", 2, 11, w - 4, 3, "", function()
+        gui.createButton("delete", 2, 11, w - 4, 3, "- DELETE PROJECT", function()
             deleteProject()
         end, colors.red, colors.white)
         
@@ -421,17 +411,6 @@ local function projectManagementMenu()
         end, colors.gray, colors.white)
         
         gui.drawAllButtons()
-        
-        -- Draw text on buttons AFTER drawing them
-        term.setCursorPos(3, 8)
-        term.setBackgroundColor(colors.lime)
-        term.setTextColor(colors.black)
-        term.write(" + CREATE NEW PROJECT")
-        
-        term.setCursorPos(3, 12)
-        term.setBackgroundColor(colors.red)
-        term.setTextColor(colors.white)
-        term.write(" - DELETE PROJECT")
         
         -- Handle clicks
         while true do
@@ -1335,7 +1314,7 @@ local function init()
         gui.clearButtons()
         
         -- Create project button
-        gui.createButton("create_first", 2, 7, w - 4, 3, "", function()
+        gui.createButton("create_first", 2, 7, w - 4, 3, "+ CREATE PROJECT", function()
             if createNewProject() then
                 -- Refresh and continue
                 availableProjects = listProjects()
@@ -1343,22 +1322,11 @@ local function init()
         end, colors.lime, colors.black)
         
         -- Exit button
-        gui.createButton("exit_first", 2, 11, w - 4, 2, "", function()
+        gui.createButton("exit_first", 2, 11, w - 4, 2, "EXIT", function()
             return false
         end, colors.red, colors.white)
         
         gui.drawAllButtons()
-        
-        -- Draw text on buttons
-        term.setCursorPos(3, 8)
-        term.setBackgroundColor(colors.lime)
-        term.setTextColor(colors.black)
-        term.write(" + CREATE PROJECT")
-        
-        term.setCursorPos(3, 12)
-        term.setBackgroundColor(colors.red)
-        term.setTextColor(colors.white)
-        term.write(" EXIT")
         
         -- Handle clicks
         local initRunning = true
@@ -1591,24 +1559,15 @@ local function init()
     -- Create project selection buttons
     local buttonY = cy + 3
     local selectedProjectName = nil
-    local buttonInfo = {}  -- Store button info for drawing text later
     
     for _, proj in ipairs(projectsWithTurtles) do
         local btnColor = colors.lime
         local btnText = colors.black
+        local btnLabel = string.format("%s (%d)", proj.name, proj.turtles)
         
-        gui.createButton("select_proj_" .. proj.index, 2, buttonY, w - 4, 2, "", function()
+        gui.createButton("select_proj_" .. proj.index, 2, buttonY, w - 4, 2, btnLabel, function()
             selectedProjectName = proj.name
         end, btnColor, btnText)
-        
-        -- Store info to draw text after buttons
-        table.insert(buttonInfo, {
-            x = 3,
-            y = buttonY,
-            text = string.format(" %s (%d)", proj.name, proj.turtles),
-            bgColor = btnColor,
-            textColor = btnText
-        })
         
         buttonY = buttonY + 3
     end
@@ -1620,14 +1579,6 @@ local function init()
     end, colors.purple, colors.white)
     
     gui.drawAllButtons()
-    
-    -- Draw text on buttons AFTER drawing buttons
-    for _, info in ipairs(buttonInfo) do
-        term.setCursorPos(info.x, info.y)
-        term.setBackgroundColor(info.bgColor)
-        term.setTextColor(info.textColor)
-        term.write(info.text)
-    end
     
     -- Handle selection
     while not selectedProjectName do
