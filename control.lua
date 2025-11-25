@@ -1403,30 +1403,7 @@ local function init()
         end
     end
     
-    term.setCursorPos(1, 3)
-    term.setTextColor(colors.white)
-    
-    -- Show active projects
-    if #projectsWithTurtles > 0 then
-        term.setTextColor(colors.lime)
-        print("ACTIVE PROJECTS:")
-        term.setTextColor(colors.white)
-        for _, proj in ipairs(projectsWithTurtles) do
-            print(string.format(" %d. %s (%d turtles)", proj.index, proj.name, proj.turtles))
-        end
-        print("")
-    end
-    
-    -- Show inactive projects
-    if #projectsWithoutTurtles > 0 then
-        term.setTextColor(colors.gray)
-        print("INACTIVE:")
-        term.setTextColor(colors.white)
-        for _, proj in ipairs(projectsWithoutTurtles) do
-            print(string.format(" %d. %s (no turtles)", proj.index, proj.name))
-        end
-        print("")
-    end
+    -- Don't print lists here - they'll be shown in the GUI selection screen below
     
     if #selectableProjects == 0 then
         term.setTextColor(colors.orange)
@@ -1587,19 +1564,34 @@ local function init()
     end
     
     -- Select project with GUI
-    term.setTextColor(colors.cyan)
-    local cy, _ = term.getCursorPos()
-    term.setCursorPos(2, cy)
-    print("Select project")
+    clearScreen()
+    
+    -- Redraw header
+    term.setBackgroundColor(colors.blue)
+    term.setTextColor(colors.white)
+    term.setCursorPos(1, 1)
+    term.clearLine()
+    local title = " \7 BRANCH MINER CONTROL \7 "
+    term.setCursorPos(math.floor((w - #title) / 2), 1)
+    term.write(title)
+    
+    term.setBackgroundColor(colors.black)
+    term.setCursorPos(2, 3)
+    term.setTextColor(colors.lime)
+    print("ACTIVE PROJECTS:")
+    term.setTextColor(colors.white)
+    term.setCursorPos(2, 4)
     term.setTextColor(colors.gray)
-    term.setCursorPos(2, cy + 1)
-    print("(or M for menu):")
+    print("Click to select:")
+    
+    local cy = 6  -- Start buttons here
     
     gui.clearButtons()
     
     -- Create project selection buttons
     local buttonY = cy + 3
     local selectedProjectName = nil
+    local buttonInfo = {}  -- Store button info for drawing text later
     
     for _, proj in ipairs(projectsWithTurtles) do
         local btnColor = colors.lime
@@ -1609,10 +1601,14 @@ local function init()
             selectedProjectName = proj.name
         end, btnColor, btnText)
         
-        term.setCursorPos(3, buttonY)
-        term.setBackgroundColor(btnColor)
-        term.setTextColor(btnText)
-        term.write(string.format(" %s (%d)", proj.name, proj.turtles))
+        -- Store info to draw text after buttons
+        table.insert(buttonInfo, {
+            x = 3,
+            y = buttonY,
+            text = string.format(" %s (%d)", proj.name, proj.turtles),
+            bgColor = btnColor,
+            textColor = btnText
+        })
         
         buttonY = buttonY + 3
     end
@@ -1624,6 +1620,14 @@ local function init()
     end, colors.purple, colors.white)
     
     gui.drawAllButtons()
+    
+    -- Draw text on buttons AFTER drawing buttons
+    for _, info in ipairs(buttonInfo) do
+        term.setCursorPos(info.x, info.y)
+        term.setBackgroundColor(info.bgColor)
+        term.setTextColor(info.textColor)
+        term.write(info.text)
+    end
     
     -- Handle selection
     while not selectedProjectName do
