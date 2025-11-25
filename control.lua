@@ -570,7 +570,7 @@ local function drawHeader()
     term.setCursorPos(w - 2, 1)
     term.setBackgroundColor(colors.red)
     term.setTextColor(colors.white)
-    term.write(" * ")
+    term.write(" \7 ")
     term.setBackgroundColor(colors.blue)
     
     -- Status line
