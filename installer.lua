@@ -225,6 +225,18 @@ local function configureTurtle()
     
     local selectedProject = projects[choice]
     
+    -- Set turtle label
+    print("")
+    print("Enter turtle name (or Enter for auto):")
+    local turtleName = read()
+    
+    if turtleName == "" then
+        turtleName = "Miner-" .. os.getComputerID()
+    end
+    
+    os.setComputerLabel(turtleName)
+    print("Label set to: " .. turtleName)
+    
     -- Join project
     print("")
     local success, result = client.joinProject(selectedProject.name)
