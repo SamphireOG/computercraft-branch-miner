@@ -443,7 +443,7 @@ local function drawControls()
     term.setTextColor(colorScheme.text)
     
     if selectedTurtle then
-        term.write("[P]ause [R]esume [H]ome")
+        term.write("[P]ause [R]esume [H]ome [Backspace]Deselect")
     else
         term.write("[A]ll Pause [Z]All Resume [Q]uit")
     end
@@ -454,7 +454,7 @@ local function drawControls()
     if selectedTurtle then
         term.write("[S]hutdown [X]Remove [F]Refresh")
     else
-        term.write("[F]Refresh [C]lear Offline [Up/Down]")
+        term.write("[F]Refresh [C]lear Offline [Click to select]")
 end
 
 local function drawScreen()
@@ -644,10 +644,56 @@ end
 -- ========== INPUT HANDLING ==========
 
 local function handleInput()
-    local event, key = os.pullEvent("key")
+    local event, param1, param2, param3 = os.pullEvent()
+    
+    -- Handle mouse clicks
+    if event == "mouse_click" then
+        local button = param1
+        local x = param2
+        local y = param3
+        
+        -- Check if clicking in turtle list area
+        local w, h = term.getSize()
+        local listStart = 4
+        local listHeight = h - 7
+        
+        if y >= listStart and y < listStart + listHeight then
+            -- Calculate which turtle was clicked
+            local idx = (y - listStart + 1) + scrollOffset
+            
+            -- Get sorted turtle list
+            local turtleList = {}
+            for id, turtle in pairs(turtles) do
+                table.insert(turtleList, {id = id, data = turtle})
+            end
+            table.sort(turtleList, function(a, b) return a.id < b.id end)
+            
+            -- Select/deselect turtle
+            if turtleList[idx] then
+                local clickedID = turtleList[idx].id
+                if selectedTurtle == clickedID then
+                    selectedTurtle = nil  -- Deselect if clicking same turtle
+                else
+                    selectedTurtle = clickedID  -- Select new turtle
+                end
+            end
+        end
+        return
+    end
+    
+    -- Handle keyboard input
+    if event ~= "key" then
+        return
+    end
+    
+    local key = param1
     
     if key == keys.q then
         running = false
+        
+    elseif key == keys.backspace or key == keys.delete then
+        -- Deselect turtle
+        selectedTurtle = nil
         
     elseif key == keys.p and not selectedTurtle then
         -- Project selector (only if no turtle selected)
