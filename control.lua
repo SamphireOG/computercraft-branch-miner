@@ -1413,6 +1413,9 @@ local function mainLoop()
                         lastDebugMessage = "Work requested by turtle " .. tostring(turtleID)
                         lastDebugColor = colors.yellow
                         
+                        -- Send ACK first (required by sendWithRetry)
+                        protocol.sendAck(message, {received = true})
+                        
                         local assignment = coordinator.claimTunnel(turtleID)
                         if assignment then
                             -- Send assignment data directly (not wrapped)
