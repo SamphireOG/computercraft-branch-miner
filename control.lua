@@ -917,6 +917,14 @@ local function mainLoop()
         local now = os.clock()
         if now - lastUpdate > 2 then
             drawScreen()
+            
+            -- DEBUG: Show message count at top
+            term.setCursorPos(1, 1)
+            term.setBackgroundColor(colors.red)
+            term.setTextColor(colors.white)
+            term.write("MSGS:" .. messageCount .. " ")
+            term.setBackgroundColor(colors.black)
+            
             lastUpdate = now
         end
         
@@ -930,6 +938,12 @@ local function mainLoop()
         -- Handle events (using timer to prevent blocking)
         os.startTimer(0.05)
         local event = {os.pullEvent()}
+        
+        -- DEBUG: Log what events we're getting
+        if event[1] ~= "timer" then
+            term.setCursorPos(1, 2)
+            term.write("Event: " .. tostring(event[1]) .. "                    ")
+        end
         
         if event[1] == "key" or event[1] == "mouse_click" or event[1] == "char" then
             -- Handle input in a separate call to avoid blocking
