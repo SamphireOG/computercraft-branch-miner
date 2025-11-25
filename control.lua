@@ -341,24 +341,22 @@ local function drawHeader()
     end
     
     term.write(status)
-    term.setTextColor(colorScheme.idle)
-    term.write(" | Press 'P' for projects")
     
-    -- DEBUG: Show message info
-    term.setCursorPos(1, 4)
-    term.clearLine()
-    term.setTextColor(colorScheme.warning)
-    term.write("DEBUG: Msgs:" .. messageCount .. " Last:" .. lastMessageType)
+    -- DEBUG: Show message info RIGHT HERE
+    term.setTextColor(colors.yellow)
+    term.write(" [Msg:" .. messageCount .. "]")
+    term.setTextColor(colorScheme.idle)
+    term.write(" P=projects")
     term.setTextColor(colorScheme.text)
 end
 
 local function drawTurtleList()
     local w, h = term.getSize()
-    local listStart = 5  -- Changed from 4 to 5 for debug line
-    local listHeight = h - 8  -- Changed from h - 7
+    local listStart = 4  -- Back to 4 since debug is inline now
+    local listHeight = h - 7  -- Back to h - 7
     
     -- List header
-    term.setCursorPos(1, listStart)
+    term.setCursorPos(1, listStart - 1)
     term.setBackgroundColor(colorScheme.background)
     term.setTextColor(colorScheme.idle)
     term.clearLine()
@@ -374,7 +372,7 @@ local function drawTurtleList()
     
     for i = 1, listHeight do
         local idx = i + scrollOffset
-        local y = listStart + i
+        local y = listStart + i - 1
         
         term.setCursorPos(1, y)
         term.setBackgroundColor(colorScheme.background)
@@ -629,8 +627,8 @@ local function handleInput()
         
         -- Check if clicking in turtle list area
         local w, h = term.getSize()
-        local listStart = 6  -- Account for debug line (header + debug + list header)
-        local listHeight = h - 8
+        local listStart = 4
+        local listHeight = h - 7
         
         if y >= listStart and y < listStart + listHeight then
             -- Calculate which turtle was clicked
@@ -690,7 +688,7 @@ local function handleInput()
         for _ in pairs(turtles) do turtleCount = turtleCount + 1 end
         
         local w, h = term.getSize()
-        local maxScroll = math.max(0, turtleCount - (h - 8))
+        local maxScroll = math.max(0, turtleCount - (h - 7))
         
         if scrollOffset < maxScroll then
             scrollOffset = scrollOffset + 1
