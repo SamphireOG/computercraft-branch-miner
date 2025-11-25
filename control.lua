@@ -1194,7 +1194,14 @@ local function init()
     print("Loading " .. currentProject.name .. "...")
     print("Listening on channel: " .. config.MODEM_CHANNEL)
     print("Modem: " .. tostring(protocol.modem ~= nil))
-    sleep(1)
+    
+    -- DEBUG: Check if channel is actually open
+    if protocol.modem then
+        print("Channel " .. config.MODEM_CHANNEL .. " open: " .. tostring(protocol.modem.isOpen(config.MODEM_CHANNEL)))
+        print("Discovery ch 100 open: " .. tostring(protocol.modem.isOpen(100)))
+    end
+    
+    sleep(2)
     
     -- Load turtles from assignments (initially marked offline)
     local assignments = projectServer.assignments[currentProject.name] or {}
@@ -1214,6 +1221,12 @@ local function init()
     
     print("Loaded " .. projectServer.getTurtleCount(currentProject.name) .. " turtles")
     sleep(0.5)
+    
+    -- Force modem to open the channel (just to be absolutely sure)
+    if protocol.modem then
+        protocol.modem.open(config.MODEM_CHANNEL)
+        print("Forced channel " .. config.MODEM_CHANNEL .. " open: " .. tostring(protocol.modem.isOpen(config.MODEM_CHANNEL)))
+    end
     
     -- Request initial status from all turtles
     requestAllStatus()
