@@ -496,6 +496,9 @@ local scrollOffset = 0
 local running = true
 local lastUpdate = 0
 
+-- Forward declarations for functions used in button callbacks
+local showProjectSelector
+
 -- ========== SCREEN HELPERS (continued) ==========
 
 local function drawBar(percent, maxWidth)
@@ -818,7 +821,7 @@ end
 
 -- ========== PROJECT SELECTOR ==========
 
-local function showProjectSelector()
+function showProjectSelector()
     clearScreen()
     local w, h = term.getSize()
     
