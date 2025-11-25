@@ -250,26 +250,73 @@ local function deleteProject()
 end
 
 local function projectManagementMenu()
-    while true do
+    local menuRunning = true
+    
+    while menuRunning do
         clearScreen()
-        print("------------------------")
-        print(" PROJECT MANAGEMENT")
-        print("------------------------")
-        print("")
-        print("1. Create project")
-        print("2. Delete project")
-        print("3. Back")
-        print("")
-        print("Choice:")
+        local w, h = term.getSize()
         
-        local choice = read()
+        -- Fancy header
+        term.setBackgroundColor(colors.blue)
+        term.setTextColor(colors.white)
+        term.setCursorPos(1, 1)
+        term.clearLine()
+        local title = " \7 PROJECT MANAGEMENT \7 "
+        term.setCursorPos(math.floor((w - #title) / 2), 1)
+        term.write(title)
         
-        if choice == "1" then
+        term.setBackgroundColor(colors.black)
+        term.setCursorPos(1, 3)
+        term.setTextColor(colors.white)
+        print("Manage your mining projects:")
+        print("")
+        
+        -- Clear buttons
+        gui.clearButtons()
+        
+        -- Create project button
+        gui.createButton("create", 2, 7, w - 4, 3, "", function()
             createNewProject()
-        elseif choice == "2" then
+        end, colors.lime, colors.black)
+        
+        term.setCursorPos(3, 8)
+        term.setBackgroundColor(colors.lime)
+        term.setTextColor(colors.black)
+        term.write(" + CREATE NEW PROJECT")
+        
+        -- Delete project button
+        gui.createButton("delete", 2, 11, w - 4, 3, "", function()
             deleteProject()
-        elseif choice == "3" then
-            return
+        end, colors.red, colors.white)
+        
+        term.setCursorPos(3, 12)
+        term.setBackgroundColor(colors.red)
+        term.setTextColor(colors.white)
+        term.write(" - DELETE PROJECT")
+        
+        -- Back button
+        gui.createButton("back", 2, h - 2, w - 4, 1, "< GO BACK", function()
+            menuRunning = false
+        end, colors.gray, colors.white)
+        
+        gui.drawAllButtons()
+        
+        -- Handle clicks
+        while true do
+            local event = {os.pullEvent()}
+            if event[1] == "mouse_click" then
+                gui.handleClick(event[3], event[4])
+                break  -- Redraw after action
+            elseif event[1] == "mouse_drag" then
+                gui.updateHover(event[3], event[4])
+            elseif event[1] == "key" and event[2] == keys.q then
+                menuRunning = false
+                break
+            end
+        end
+        
+        if not menuRunning then
+            break
         end
     end
 end
@@ -620,7 +667,6 @@ end
 local function showProjectSelector()
     clearScreen()
     local w, h = term.getSize()
-    local selectorRunning = true  -- Local variable for this screen only
     
     -- Fancy header
     term.setBackgroundColor(colors.blue)
@@ -644,22 +690,19 @@ local function showProjectSelector()
         print("Run installer to create a project first.")
         print("")
         
-        gui.createButton("back", math.floor(w/2 - 5), h - 2, 10, 1, "Go Back", function()
-            selectorRunning = false
-        end, colors.gray, colors.white)
+        gui.createButton("back", math.floor(w/2 - 5), h - 2, 10, 1, "Go Back", nil, colors.gray, colors.white)
         gui.drawAllButtons()
         
-        while selectorRunning do
+        while true do
             local event = {os.pullEvent()}
             if event[1] == "mouse_click" then
                 if gui.handleClick(event[3], event[4]) then
-                    selectorRunning = false
+                    return
                 end
             elseif event[1] == "key" then
-                selectorRunning = false
+                return
             end
         end
-        return
     end
     
     term.setTextColor(colors.lime)
@@ -682,10 +725,7 @@ local function showProjectSelector()
             local textColor = colors.white
             
             gui.createButton("proj_" .. i, 2, buttonY, w - 4, 3, "", function()
-                local success, err = switchProject(projName)
-                if success then
-                    selectorRunning = false  -- Exit selector to reload
-                end
+                switchProject(projName)
             end, bgColor, textColor)
             
             -- Draw custom project card
@@ -722,25 +762,24 @@ local function showProjectSelector()
         term.setTextColor(colors.white)
     end
     
-    -- Back/Cancel button
-    gui.createButton("cancel", 2, h - 2, 12, 1, "< Go Back", function()
-        selectorRunning = false
-    end, colors.red, colors.white)
+    -- Back/Cancel button (no callback needed, click will exit loop)
+    gui.createButton("cancel", 2, h - 2, 12, 1, "< Go Back", nil, colors.red, colors.white)
     
     -- Management button
     gui.createButton("manage", w - 14, h - 2, 12, 1, "Manage >>", function()
         projectManagementMenu()
-        selectorRunning = false
     end, colors.orange, colors.white)
     
     gui.drawAllButtons()
     
-    -- Handle interactions with local loop
+    -- Handle interactions with local loop variable
+    local selectorRunning = true
     while selectorRunning do
         local event = {os.pullEvent()}
         if event[1] == "mouse_click" then
-            if gui.handleClick(event[3], event[4]) then
-                -- Button was clicked, it will set selectorRunning = false if needed
+            local buttonClicked = gui.handleClick(event[3], event[4])
+            if buttonClicked then
+                selectorRunning = false
             end
         elseif event[1] == "mouse_drag" then
             gui.updateHover(event[3], event[4])
