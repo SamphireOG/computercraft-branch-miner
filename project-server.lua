@@ -108,6 +108,17 @@ function server.addTurtle(projectName, turtleID, turtleLabel)
     return true
 end
 
+function server.removeTurtle(projectName, turtleID)
+    -- Remove turtle from project assignments
+    if not server.assignments[projectName] then
+        return false
+    end
+    
+    server.assignments[projectName][turtleID] = nil
+    server.saveAssignments()
+    return true
+end
+
 function server.getTurtleCount(projectName)
     if not server.assignments[projectName] then
         return 0
@@ -287,6 +298,22 @@ function server.runBackground()
         end
         
         sleep(0.1)
+    end
+end
+
+function server.update()
+    -- Process pending messages without blocking
+    -- Used when running alongside main controller loop
+    os.startTimer(0) -- Trigger immediate timer event
+    local event = os.pullEvent("timer")
+    -- Any incoming modem messages will be queued for next update
+end
+
+function server.stop()
+    -- Stop the server and close modem
+    server.isRunning = false
+    if protocol and protocol.modem then
+        protocol.modem.close(server.DISCOVERY_CHANNEL)
     end
 end
 

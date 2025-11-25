@@ -443,14 +443,18 @@ local function drawControls()
     term.setTextColor(colorScheme.text)
     
     if selectedTurtle then
-        term.write("[P]ause [R]esume [H]ome [S]hutdown")
+        term.write("[P]ause [R]esume [H]ome")
     else
-        term.write("[A]ll Pause [Z]All Resume [Q]uit [Up/Down]Select")
+        term.write("[A]ll Pause [Z]All Resume [Q]uit")
     end
     
     term.setCursorPos(1, controlY + 2)
     term.clearLine()
-    term.write("[F]Refresh Status [C]lear Offline")
+    
+    if selectedTurtle then
+        term.write("[S]hutdown [X]Remove [F]Refresh")
+    else
+        term.write("[F]Refresh [C]lear Offline [Up/Down]")
 end
 
 local function drawScreen()
@@ -700,6 +704,10 @@ local function handleInput()
             if confirm == "y" or confirm == "Y" then
                 sendCommand(protocol.MSG_TYPES.CMD_SHUTDOWN, selectedTurtle)
             end
+            
+        elseif key == keys.x then
+            -- Remove turtle
+            removeTurtle(selectedTurtle)
         end
     end
 end
@@ -735,15 +743,152 @@ local function checkForMessages()
     end
 end
 
+-- ========== OFFLINE DETECTION ==========
+
+local function checkOfflineTurtles()
+    local now = os.epoch("utc")
+    local offlineThreshold = 30000 -- 30 seconds in milliseconds
+    
+    for turtleID, turtle in pairs(turtles) do
+        local timeSinceLastSeen = now - (turtle.lastSeen or 0)
+        
+        if timeSinceLastSeen > offlineThreshold then
+            -- Mark as offline
+            if turtle.status ~= "offline" then
+                turtle.status = "offline"
+                turtle.currentTask = "Offline - no heartbeat"
+            end
+        end
+    end
+end
+
+local function cleanupOffline()
+    local now = os.epoch("utc")
+    local removeThreshold = 300000 -- 5 minutes in milliseconds
+    local removed = 0
+    
+    -- Find and remove very old offline turtles
+    local toRemove = {}
+    for turtleID, turtle in pairs(turtles) do
+        local timeSinceLastSeen = now - (turtle.lastSeen or 0)
+        
+        if turtle.status == "offline" and timeSinceLastSeen > removeThreshold then
+            table.insert(toRemove, turtleID)
+        end
+    end
+    
+    -- Remove them
+    for _, turtleID in ipairs(toRemove) do
+        turtles[turtleID] = nil
+        
+        -- Also remove from project server assignments
+        if currentProject then
+            projectServer.removeTurtle(currentProject.name, turtleID)
+        end
+        
+        removed = removed + 1
+    end
+    
+    -- Show result
+    if removed > 0 then
+        term.setCursorPos(1, 1)
+        term.setTextColor(colorScheme.active)
+        term.setBackgroundColor(colorScheme.background)
+        term.write("Removed " .. removed .. " offline turtle(s)")
+        sleep(1)
+    else
+        term.setCursorPos(1, 1)
+        term.setTextColor(colorScheme.text)
+        term.setBackgroundColor(colorScheme.background)
+        term.write("No offline turtles to remove")
+        sleep(1)
+    end
+end
+
+local function removeTurtle(turtleID)
+    -- Get turtle info for confirmation
+    local turtle = turtles[turtleID]
+    if not turtle then
+        return
+    end
+    
+    -- Show confirmation prompt
+    clearScreen()
+    term.setCursorPos(1, 1)
+    term.setTextColor(colorScheme.error)
+    term.write("REMOVE TURTLE?")
+    
+    term.setCursorPos(1, 3)
+    term.setTextColor(colorScheme.text)
+    term.write("ID: " .. turtleID)
+    
+    term.setCursorPos(1, 4)
+    term.write("Label: " .. (turtle.label or "Unknown"))
+    
+    term.setCursorPos(1, 5)
+    term.write("Status: " .. (turtle.status or "Unknown"))
+    
+    term.setCursorPos(1, 7)
+    term.setTextColor(colorScheme.warning)
+    term.write("This will permanently")
+    
+    term.setCursorPos(1, 8)
+    term.write("remove this turtle from")
+    
+    term.setCursorPos(1, 9)
+    term.write("the project.")
+    
+    term.setCursorPos(1, 11)
+    term.setTextColor(colorScheme.text)
+    term.write("Continue? (Y/N)")
+    
+    -- Wait for confirmation
+    local confirm = os.pullEvent("char")
+    
+    if confirm == "y" or confirm == "Y" then
+        -- Remove from local table
+        turtles[turtleID] = nil
+        
+        -- Remove from project server
+        if currentProject then
+            projectServer.removeTurtle(currentProject.name, turtleID)
+        end
+        
+        -- Clear selection
+        selectedTurtle = nil
+        
+        -- Show success
+        term.setCursorPos(1, 13)
+        term.setTextColor(colorScheme.active)
+        term.write("Turtle removed!")
+        sleep(1)
+    else
+        -- Cancelled
+        term.setCursorPos(1, 13)
+        term.setTextColor(colorScheme.text)
+        term.write("Cancelled")
+        sleep(0.5)
+    end
+end
+
 -- ========== MAIN LOOP ==========
 
 local function mainLoop()
+    local lastOfflineCheck = 0
+    
     while running do
         -- Update display
         local now = os.clock()
         if now - lastUpdate > 2 then
             drawScreen()
             lastUpdate = now
+        end
+        
+        -- Check for offline turtles every 10 seconds
+        local nowEpoch = os.epoch("utc")
+        if nowEpoch - lastOfflineCheck > 10000 then
+            checkOfflineTurtles()
+            lastOfflineCheck = nowEpoch
         end
         
         -- Handle events
@@ -1018,19 +1163,19 @@ local function init()
     print("Loading " .. currentProject.name .. "...")
     sleep(0.5)
     
-    -- Load turtles from assignments
+    -- Load turtles from assignments (initially marked offline)
     local assignments = projectServer.assignments[currentProject.name] or {}
     for turtleID, info in pairs(assignments) do
         turtles[turtleID] = {
             id = turtleID,
             label = info.label or ("Turtle-" .. turtleID),
-            status = "idle",
+            status = "offline",
             position = {x = 0, y = 0, z = 0},
             fuel = 0,
             fuelPercent = 0,
             inventory = 0,
-            lastSeen = info.lastSeen or os.epoch("utc"),
-            currentTask = "Offline - waiting for heartbeat"
+            lastSeen = info.lastSeen or 0,  -- Old timestamp so they show as offline
+            currentTask = "Waiting for heartbeat..."
         }
     end
     
