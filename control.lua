@@ -561,6 +561,11 @@ local function drawHeader()
     term.setTextColor(colors.white)
     term.clearLine()
     
+    -- Draw title (positioned to the right)
+    local title = " \7 BRANCH MINER CONTROL \7 "
+    term.setCursorPos(w - #title - 3, 1)  -- Leave space for red button on right
+    term.write(title)
+    
     -- Settings button in top right corner (red square with centered # icon)
     term.setCursorPos(w - 2, 1)
     term.setBackgroundColor(colors.red)
@@ -568,12 +573,6 @@ local function drawHeader()
     term.write("   ")  -- 3-char red square
     term.setCursorPos(w - 1, 1)  -- center position
     term.write("#")
-    term.setBackgroundColor(colors.blue)
-    
-    -- Draw title (shifted right to avoid overlap)
-    local title = " \7 BRANCH MINER CONTROL \7 "
-    term.setCursorPos(math.floor((w - #title) / 2) + 2, 1)
-    term.write(title)
     term.setBackgroundColor(colors.blue)
     
     -- Status line
