@@ -819,6 +819,27 @@ local function mineTunnel(assignment)
         end
     end
     
+    -- For first block only: Move forward to clear home base before starting pattern
+    if blocksMined == 0 then
+        print("First block: Moving away from home base...")
+        -- Just mine forward and move without complex pattern
+        if utils.isOre("up") then oresFound = oresFound + utils.mineVein("up")
+        else utils.safeDig("up") end
+        
+        if utils.isOre("forward") then oresFound = oresFound + utils.mineVein("forward")
+        else utils.safeDig("forward") end
+        
+        if not utils.safeForward(true) then
+            print("ERROR: Could not move forward from home base")
+            return false
+        end
+        
+        blocksMined = 1
+        myState.blockProgress = 1
+        state.updateProgress(myState, 1, 0)
+        print("Moved to block 1 - starting pattern mining...")
+    end
+    
     -- Mine tunnel
     while blocksMined < tunnelLength and running do
         -- Check for pause command
