@@ -67,6 +67,20 @@ local function switchProject(projectName)
         config.HOME_Y = projectConfig.startY
     end
     
+    -- Load tunnel size setting
+    if projectConfig.tunnelSize then
+        config.TUNNEL_SIZE = projectConfig.tunnelSize  -- "2x1", "2x2", or "3x3"
+    else
+        config.TUNNEL_SIZE = "2x2"  -- default for old projects
+    end
+    
+    -- Load wall protection setting
+    if projectConfig.wallProtection ~= nil then
+        config.WALL_PROTECTION = projectConfig.wallProtection
+    else
+        config.WALL_PROTECTION = true  -- default enabled for old projects
+    end
+    
     -- Reinitialize protocol with new channel
     protocol.init()
     
@@ -297,6 +311,63 @@ local function createNewProject()
     
     term.setBackgroundColor(colors.black)
     
+    -- Tunnel size selection
+    term.setCursorPos(2, 19)
+    term.setTextColor(colors.white)
+    print("Tunnel size:")
+    term.setCursorPos(2, 20)
+    term.setTextColor(colors.yellow)
+    print("1) 2x1 (compact)")
+    term.setCursorPos(2, 21)
+    print("2) 2x2 (balanced)")
+    term.setCursorPos(2, 22)
+    print("3) 3x3 (spacious)")
+    term.setCursorPos(2, 23)
+    term.setTextColor(colors.gray)
+    print("Enter 1, 2, or 3 [2]:")
+    
+    term.setBackgroundColor(colors.gray)
+    term.setTextColor(colors.white)
+    term.setCursorPos(2, 24)
+    term.write(string.rep(" ", 5))
+    term.setCursorPos(2, 24)
+    local sizeInput = read()
+    if sizeInput:lower() == "q" then return false end
+    local sizeOption = tonumber(sizeInput) or 2
+    
+    local tunnelSize = "2x2"  -- default
+    if sizeOption == 1 then
+        tunnelSize = "2x1"
+    elseif sizeOption == 3 then
+        tunnelSize = "3x3"
+    end
+    
+    term.setBackgroundColor(colors.black)
+    
+    -- Wall protection option
+    term.setCursorPos(2, 26)
+    term.setTextColor(colors.white)
+    print("Wall protection (check/fill walls)?")
+    term.setCursorPos(2, 27)
+    term.setTextColor(colors.yellow)
+    print("Y) Yes - Check walls for ore/holes")
+    term.setCursorPos(2, 28)
+    print("N) No  - Just mine the tunnel")
+    term.setCursorPos(2, 29)
+    term.setTextColor(colors.gray)
+    print("Y or N [Y]:")
+    
+    term.setBackgroundColor(colors.gray)
+    term.setTextColor(colors.white)
+    term.setCursorPos(2, 30)
+    term.write(string.rep(" ", 5))
+    term.setCursorPos(2, 30)
+    local wallInput = read()
+    if wallInput:lower() == "q" then return false end
+    local wallProtection = wallInput:lower() ~= "n"  -- default to yes
+    
+    term.setBackgroundColor(colors.black)
+    
     local channel = getNextAvailableChannel()
     
     local projectConfig = {
@@ -305,6 +376,8 @@ local function createNewProject()
         tunnelLength = length,
         numLayers = layers,
         startY = startY,
+        tunnelSize = tunnelSize,  -- NEW: tunnel size option
+        wallProtection = wallProtection,  -- NEW: wall protection option
         homeSet = false,
         createdAt = os.epoch("utc")
     }
@@ -1120,8 +1193,70 @@ function showProjectSettings()
             saveProjectConfig(currentProject.name, currentProject)
             -- Reinitialize coordinator with new config
             coordinator.init()
-            drawScreen()
+            showProjectSettings()
         end
+    end, colors.blue, colors.white)
+    
+    -- TUNNEL SIZE setting
+    local sizeY = settingsY + 5
+    term.setCursorPos(2, sizeY)
+    term.setBackgroundColor(colors.black)
+    term.setTextColor(colors.lightGray)
+    term.write("Tunnel Size:")
+    term.setCursorPos(2, sizeY + 1)
+    term.setTextColor(colors.white)
+    term.write("Current: ")
+    term.setTextColor(colors.lime)
+    term.write(config.TUNNEL_SIZE or "2x2")
+    
+    gui.createButton("edit_size", 2, sizeY + 2, 20, 1, "Change Size", function()
+        term.setCursorPos(2, sizeY + 4)
+        term.setBackgroundColor(colors.black)
+        term.setTextColor(colors.yellow)
+        term.clearLine()
+        term.write("1=2x1 2=2x2 3=3x3: ")
+        term.setTextColor(colors.white)
+        local input = read()
+        local sizeOption = tonumber(input)
+        local tunnelSize = config.TUNNEL_SIZE
+        if sizeOption == 1 then
+            tunnelSize = "2x1"
+        elseif sizeOption == 2 then
+            tunnelSize = "2x2"
+        elseif sizeOption == 3 then
+            tunnelSize = "3x3"
+        end
+        
+        if tunnelSize then
+            config.TUNNEL_SIZE = tunnelSize
+            -- Save to project config
+            currentProject.tunnelSize = tunnelSize
+            saveProjectConfig(currentProject.name, currentProject)
+            showProjectSettings()
+        end
+    end, colors.blue, colors.white)
+    
+    -- WALL PROTECTION setting
+    local wallY = sizeY + 5
+    term.setCursorPos(2, wallY)
+    term.setBackgroundColor(colors.black)
+    term.setTextColor(colors.lightGray)
+    term.write("Wall Protection:")
+    term.setCursorPos(2, wallY + 1)
+    term.setTextColor(colors.white)
+    term.write("Current: ")
+    local wallStatus = config.WALL_PROTECTION and "Enabled" or "Disabled"
+    local wallColor = config.WALL_PROTECTION and colors.lime or colors.red
+    term.setTextColor(wallColor)
+    term.write(wallStatus)
+    
+    gui.createButton("toggle_wall", 2, wallY + 2, 20, 1, "Toggle Protection", function()
+        -- Toggle the setting
+        config.WALL_PROTECTION = not config.WALL_PROTECTION
+        -- Save to project config
+        currentProject.wallProtection = config.WALL_PROTECTION
+        saveProjectConfig(currentProject.name, currentProject)
+        showProjectSettings()
     end, colors.blue, colors.white)
     
     -- Back button

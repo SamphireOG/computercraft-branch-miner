@@ -26,36 +26,90 @@ end
 function coordinator.generateWorkQueue()
     coordinator.workQueue = {}
     
+    -- Get branch spacing based on tunnel size
+    local branchSpacing = config.getBranchSpacing()
+    
+    -- Calculate main tunnel length (max 80)
+    local mainLength = math.min(config.TUNNEL_LENGTH, 80)
+    
+    -- Calculate branch length (half of main tunnel length)
+    local branchLength = math.floor(mainLength / 2)
+    
     -- Generate tunnel assignments for all layers
     for layer = 1, config.NUM_LAYERS do
         local layerY = config.START_Y - (layer - 1) * config.LAYER_SPACING
         
-        -- Generate tunnels for this layer
-        local numTunnels = math.min(config.MAX_TUNNELS, 
-                                    math.floor(config.TUNNEL_LENGTH / config.TUNNEL_SPACING))
+        -- TUNNEL 1: MAIN TUNNEL (straight north from home)
+        local mainStart = {x = config.HOME_X, y = layerY, z = config.HOME_Z}
+        local mainEnd = {x = config.HOME_X, y = layerY, z = config.HOME_Z - mainLength}
         
-        for tunnelNum = 1, numTunnels do
-            local startX = config.HOME_X
-            local startY = layerY
-            local startZ = config.HOME_Z - (tunnelNum - 1) * config.TUNNEL_SPACING
+        local mainAssignment = {
+            id = "L" .. layer .. "T1",
+            layer = layer,
+            tunnel = 1,
+            tunnelType = "main",  -- NEW: distinguish main from branches
+            direction = "north",  -- NEW: mining direction
+            startPos = mainStart,
+            endPos = mainEnd,
+            length = mainLength,
+            status = "available",
+            assignedTo = nil,
+            startedAt = nil,
+            completedAt = nil
+        }
+        table.insert(coordinator.workQueue, mainAssignment)
+        
+        -- BRANCHES: Create left/right pairs along main tunnel
+        local numBranches = math.floor(mainLength / branchSpacing)
+        local tunnelNum = 2  -- Start at T2 (T1 is main)
+        
+        for branchIdx = 0, numBranches - 1 do
+            -- Position along main tunnel where branch starts
+            local branchZ = config.HOME_Z - (branchIdx * branchSpacing)
             
-            local endX = startX
-            local endY = layerY
-            local endZ = startZ - config.TUNNEL_LENGTH
+            -- LEFT BRANCH (west, negative X)
+            local leftStart = {x = config.HOME_X, y = layerY, z = branchZ}
+            local leftEnd = {x = config.HOME_X - branchLength, y = layerY, z = branchZ}
             
-            local assignment = {
+            local leftAssignment = {
                 id = "L" .. layer .. "T" .. tunnelNum,
                 layer = layer,
                 tunnel = tunnelNum,
-                startPos = {x = startX, y = startY, z = startZ},
-                endPos = {x = endX, y = endY, z = endZ},
-                status = "available",  -- "available", "assigned", "completed"
+                tunnelType = "branch",
+                direction = "west",
+                branchIndex = branchIdx,
+                startPos = leftStart,
+                endPos = leftEnd,
+                length = branchLength,
+                status = "available",
                 assignedTo = nil,
                 startedAt = nil,
                 completedAt = nil
             }
+            table.insert(coordinator.workQueue, leftAssignment)
+            tunnelNum = tunnelNum + 1
             
-            table.insert(coordinator.workQueue, assignment)
+            -- RIGHT BRANCH (east, positive X)
+            local rightStart = {x = config.HOME_X, y = layerY, z = branchZ}
+            local rightEnd = {x = config.HOME_X + branchLength, y = layerY, z = branchZ}
+            
+            local rightAssignment = {
+                id = "L" .. layer .. "T" .. tunnelNum,
+                layer = layer,
+                tunnel = tunnelNum,
+                tunnelType = "branch",
+                direction = "east",
+                branchIndex = branchIdx,
+                startPos = rightStart,
+                endPos = rightEnd,
+                length = branchLength,
+                status = "available",
+                assignedTo = nil,
+                startedAt = nil,
+                completedAt = nil
+            }
+            table.insert(coordinator.workQueue, rightAssignment)
+            tunnelNum = tunnelNum + 1
         end
     end
 end

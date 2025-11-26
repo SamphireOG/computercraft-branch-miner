@@ -399,6 +399,12 @@ end
 
 -- ========== ORE VEIN MINING ==========
 
+function utils.isOreBlock(blockName)
+    -- Check if a block name is an ore block
+    if not blockName then return false end
+    return config.isOre(blockName)
+end
+
 function utils.isOre(direction)
     local inspectFunc = direction == "forward" and turtle.inspect or
                        direction == "up" and turtle.inspectUp or

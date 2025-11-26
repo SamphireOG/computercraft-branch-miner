@@ -5,9 +5,20 @@ local config = {
     -- ========== MINING PARAMETERS ==========
     
     -- Tunnel dimensions
-    TUNNEL_LENGTH = 64,          -- Blocks per tunnel
-    TUNNEL_SPACING = 3,          -- Blocks between parallel tunnels (3 = optimal for ore coverage)
+    TUNNEL_LENGTH = 64,          -- Blocks per tunnel (for side branches)
+    TUNNEL_SPACING = 3,          -- Blocks between parallel tunnels (calculated from tunnel size)
     TUNNEL_HEIGHT = 2,           -- Blocks high (2 = efficient for diamonds)
+    TUNNEL_SIZE = "2x2",         -- Tunnel size: "2x1", "2x2", or "3x3" (set by project)
+    
+    -- Branch spacing based on tunnel size
+    BRANCH_SPACING = {
+        ["2x1"] = 3,             -- 2x1 tunnels: 3 blocks apart
+        ["2x2"] = 5,             -- 2x2 tunnels: 5 blocks apart
+        ["3x3"] = 7,             -- 3x3 tunnels: 7 blocks apart
+    }
+    
+    -- Tunnel features
+    WALL_PROTECTION = true,      -- Check walls for ore/holes and fill them (set by project)
     
     -- Vertical mining configuration
     START_Y = -59,               -- Starting Y-level (optimal for diamonds in 1.18+)
@@ -126,6 +137,11 @@ end
 
 function config.getFuelValue(itemName)
     return config.FUEL_ITEMS[itemName] or 0
+end
+
+function config.getBranchSpacing()
+    -- Get spacing based on current tunnel size
+    return config.BRANCH_SPACING[config.TUNNEL_SIZE] or 5
 end
 
 -- Validate configuration

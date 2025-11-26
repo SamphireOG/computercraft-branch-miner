@@ -444,6 +444,7 @@ end
 
 function navigateToTunnelStart(assignment)
     print("Navigating to tunnel start...")
+    print("Type: " .. (assignment.tunnelType or "unknown") .. ", Direction: " .. (assignment.direction or "unknown"))
     
     -- Debug: Show current position and target
     local currX, currY, currZ, currF = utils.getPosition()
@@ -455,16 +456,33 @@ function navigateToTunnelStart(assignment)
     -- Check if we're already at the target
     if currX == startPos.x and currY == startPos.y and currZ == startPos.z then
         print("Already at tunnel start!")
-        utils.turnTo(0)  -- Face north
+        -- Face the correct direction for this tunnel
+        local facing = 0  -- default north
+        if assignment.direction == "west" then
+            facing = 3
+        elseif assignment.direction == "east" then
+            facing = 1
+        elseif assignment.direction == "south" then
+            facing = 2
+        end
+        utils.turnTo(facing)
         return true
     end
     
     local success = utils.goToPosition(startPos.x, startPos.y, startPos.z, true)
     
     if success then
-        -- Face tunnel direction (north)
-        utils.turnTo(0)
-        print("Arrived at tunnel start")
+        -- Face tunnel direction based on assignment
+        local facing = 0  -- default north
+        if assignment.direction == "west" then
+            facing = 3
+        elseif assignment.direction == "east" then
+            facing = 1
+        elseif assignment.direction == "south" then
+            facing = 2
+        end
+        utils.turnTo(facing)
+        print("Arrived at tunnel start, facing " .. assignment.direction)
         return true
     else
         print("ERROR: Could not reach tunnel start")
@@ -476,36 +494,177 @@ end
 
 -- ========== MINING ==========
 
-local function mineTunnelSection()
-    -- Mine a 2-block high section with chest protection
+local function checkAndProtectWall(direction, wallName)
+    -- Check wall for ore and holes, mine ore if found, place cobble if hole detected
+    -- Returns: ores found
     local oresFound = 0
     
-    -- Mine top block (using SAFE dig to protect chests)
-    if utils.isOre("up") then
-        oresFound = oresFound + utils.mineVein("up")
-    else
-        utils.safeDig("up")  -- Will refuse to dig chests
+    -- Detect what's in this direction
+    local hasBlock = false
+    local success, blockData = false, nil
+    
+    if direction == "forward" then
+        hasBlock, blockData = turtle.inspect()
+    elseif direction == "up" then
+        hasBlock, blockData = turtle.inspectUp()
+    elseif direction == "down" then
+        hasBlock, blockData = turtle.inspectDown()
     end
     
-    -- Mine forward block
-    if utils.isOre("forward") then
-        oresFound = oresFound + utils.mineVein("forward")
-    else
-        utils.safeDig("forward")
+    -- If there's a block, check if it's ore
+    if hasBlock and blockData then
+        if utils.isOreBlock(blockData.name) then
+            print("Ore at " .. wallName .. " - mining vein")
+            oresFound = utils.mineVein(direction)
+            -- After vein mining, recheck for holes
+            if direction == "forward" then
+                hasBlock = turtle.detect()
+            elseif direction == "up" then
+                hasBlock = turtle.detectUp()
+            elseif direction == "down" then
+                hasBlock = turtle.detectDown()
+            end
+        end
     end
     
-    -- Move forward
-    local success, err = utils.safeForward(true)
-    if not success then
-        print("Movement failed: " .. (err or "unknown"))
-        return false, 0
+    -- If there's no block (hole in wall), place cobblestone
+    if not hasBlock then
+        local placed = false
+        turtle.select(1)  -- Cobble slot
+        
+        if direction == "forward" then
+            placed = turtle.place()
+        elseif direction == "up" then
+            placed = turtle.placeUp()
+        elseif direction == "down" then
+            placed = turtle.placeDown()
+        end
+        
+        if placed then
+            print("Filled hole at " .. wallName)
+        end
     end
     
-    -- Mine bottom block (stand on it)
-    if utils.isOre("down") then
-        oresFound = oresFound + utils.mineVein("down")
+    return oresFound
+end
+
+local function mineTunnelSection()
+    -- Mine tunnel section based on configured size (2x1, 2x2, or 3x3)
+    local oresFound = 0
+    local tunnelSize = config.TUNNEL_SIZE or "2x2"
+    local wallProtection = config.WALL_PROTECTION
+    
+    if tunnelSize == "3x3" then
+        -- 3x3: mine up, forward, left, right, down after moving
+        
+        -- Mine ceiling
+        if utils.isOre("up") then oresFound = oresFound + utils.mineVein("up")
+        else utils.safeDig("up") end
+        
+        -- Mine forward
+        if utils.isOre("forward") then oresFound = oresFound + utils.mineVein("forward")
+        else utils.safeDig("forward") end
+        
+        -- Mine left wall
+        utils.turnLeft()
+        if utils.isOre("forward") then oresFound = oresFound + utils.mineVein("forward")
+        else utils.safeDig("forward") end
+        
+        -- Mine right wall
+        utils.turnRight()
+        utils.turnRight()
+        if utils.isOre("forward") then oresFound = oresFound + utils.mineVein("forward")
+        else utils.safeDig("forward") end
+        utils.turnLeft()  -- Face forward again
+        
+        -- Move forward into the cleared space
+        local success, err = utils.safeForward(true)
+        if not success then
+            print("Movement failed: " .. (err or "unknown"))
+            return false, 0
+        end
+        
+        -- Mine floor
+        if utils.isOre("down") then oresFound = oresFound + utils.mineVein("down")
+        else utils.safeDig("down") end
+        
+        -- Check all walls for holes and ore (if protection enabled)
+        if wallProtection then
+            oresFound = oresFound + checkAndProtectWall("up", "ceiling")
+            oresFound = oresFound + checkAndProtectWall("down", "floor")
+            
+            utils.turnLeft()
+            oresFound = oresFound + checkAndProtectWall("forward", "left wall")
+            utils.turnRight()
+            utils.turnRight()
+            oresFound = oresFound + checkAndProtectWall("forward", "right wall")
+            utils.turnLeft()  -- Face forward again
+        end
+        
+    elseif tunnelSize == "2x1" then
+        -- 2x1: mine up and forward only (compact tunnel)
+        
+        -- Mine ceiling
+        if utils.isOre("up") then oresFound = oresFound + utils.mineVein("up")
+        else utils.safeDig("up") end
+        
+        -- Mine forward
+        if utils.isOre("forward") then oresFound = oresFound + utils.mineVein("forward")
+        else utils.safeDig("forward") end
+        
+        -- Move forward
+        local success, err = utils.safeForward(true)
+        if not success then
+            print("Movement failed: " .. (err or "unknown"))
+            return false, 0
+        end
+        
+        -- Check all walls for holes and ore (if protection enabled)
+        if wallProtection then
+            oresFound = oresFound + checkAndProtectWall("up", "ceiling")
+            -- For 2x1, no floor to check, but check side walls
+            utils.turnLeft()
+            oresFound = oresFound + checkAndProtectWall("forward", "left wall")
+            utils.turnRight()
+            utils.turnRight()
+            oresFound = oresFound + checkAndProtectWall("forward", "right wall")
+            utils.turnLeft()  -- Face forward again
+        end
+        
     else
-        utils.safeDig("down")
+        -- 2x2 (default): mine up, forward, down after moving
+        
+        -- Mine ceiling
+        if utils.isOre("up") then oresFound = oresFound + utils.mineVein("up")
+        else utils.safeDig("up") end
+        
+        -- Mine forward
+        if utils.isOre("forward") then oresFound = oresFound + utils.mineVein("forward")
+        else utils.safeDig("forward") end
+        
+        -- Move forward
+        local success, err = utils.safeForward(true)
+        if not success then
+            print("Movement failed: " .. (err or "unknown"))
+            return false, 0
+        end
+        
+        -- Mine floor
+        if utils.isOre("down") then oresFound = oresFound + utils.mineVein("down")
+        else utils.safeDig("down") end
+        
+        -- Check all walls for holes and ore (if protection enabled)
+        if wallProtection then
+            oresFound = oresFound + checkAndProtectWall("up", "ceiling")
+            oresFound = oresFound + checkAndProtectWall("down", "floor")
+            
+            utils.turnLeft()
+            oresFound = oresFound + checkAndProtectWall("forward", "left wall")
+            utils.turnRight()
+            utils.turnRight()
+            oresFound = oresFound + checkAndProtectWall("forward", "right wall")
+            utils.turnLeft()  -- Face forward again
+        end
     end
     
     return true, oresFound
@@ -514,11 +673,15 @@ end
 local function mineTunnel(assignment)
     print("=== Mining Tunnel ===")
     print("Layer " .. assignment.layer .. ", Tunnel " .. assignment.tunnel)
+    print("Type: " .. (assignment.tunnelType or "unknown") .. ", Length: " .. (assignment.length or config.TUNNEL_LENGTH))
     
     myState.status = "mining"
     local blocksMined = myState.blockProgress
     local oresFound = 0
     local torchCounter = 0
+    
+    -- Get tunnel length from assignment (supports different lengths for main vs branches)
+    local tunnelLength = assignment.length or config.TUNNEL_LENGTH
     
     -- Navigate to start position (if not already there)
     if myState.blockProgress == 0 then
@@ -529,14 +692,23 @@ local function mineTunnel(assignment)
             return false
         end
         
-        -- Check if tunnel starts at home base (special case for tunnel 1)
+        -- Check if tunnel starts at home base (special case for main tunnel on layer 1)
         local atTunnelStart = (utils.position.x == assignment.startPos.x and
                               utils.position.y == assignment.startPos.y and
                               utils.position.z == assignment.startPos.z)
         
         if atTunnelStart then
-            print("Already at tunnel start - facing north")
-            utils.turnTo(0)  -- Face north toward mining
+            print("Already at tunnel start")
+            -- Face the correct direction for this tunnel
+            local facing = 0
+            if assignment.direction == "west" then
+                facing = 3
+            elseif assignment.direction == "east" then
+                facing = 1
+            elseif assignment.direction == "south" then
+                facing = 2
+            end
+            utils.turnTo(facing)
         else
             if not navigateToTunnelStart(assignment) then
                 return false
@@ -545,7 +717,7 @@ local function mineTunnel(assignment)
     end
     
     -- Mine tunnel
-    while blocksMined < config.TUNNEL_LENGTH and running do
+    while blocksMined < tunnelLength and running do
         -- Check for pause command
         parallel.waitForAny(
             function()
@@ -634,7 +806,7 @@ local function mineTunnel(assignment)
             sendHeartbeat(false)
         end
         
-        print("Progress: " .. blocksMined .. "/" .. config.TUNNEL_LENGTH)
+        print("Progress: " .. blocksMined .. "/" .. tunnelLength)
     end
     
     -- Tunnel complete!
