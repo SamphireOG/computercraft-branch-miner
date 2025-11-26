@@ -7,7 +7,7 @@ local state = require("state")
 local utils = require("utils")
 local coordinator = require("coordinator")
 local projectClient = require("project-client")
-local turtleGUI = require("turtle-gui")
+local turtleGUI = require("turtle-gui-v2")
 
 -- ========== GLOBAL STATE ==========
 
@@ -86,40 +86,9 @@ local function initializeMiner()
         print("")
     else
         print("WARNING: No project assignment found!")
+        print("Run installer to join a project.")
         print("")
-        print("Opening GUI to join a project...")
-        sleep(2)
-        
-        -- Show GUI for project management
-        local guiAction = turtleGUI.run()
-        
-        if guiAction == "start_mining" then
-            -- User joined a project and wants to start
-            -- Reload assignment
-            assignment = projectClient.loadAssignment()
-            
-            if not assignment then
-                print("ERROR: No project assignment!")
-                return false
-            end
-            
-            -- Load project settings
-            if assignment.startY then
-                config.START_Y = assignment.startY
-                config.HOME_Y = assignment.startY
-            end
-            
-            -- Switch to project channel
-            protocol.close()
-            config.MODEM_CHANNEL = assignment.channel
-            protocol.init()
-            
-            -- Reconnect
-            projectClient.reconnect()
-        else
-            -- User exited
-            return false
-        end
+        return false
     end
     
     -- Try to load saved state
@@ -161,8 +130,27 @@ local function initializeMiner()
                 myState = savedState
                 utils.setPosition(myState.position.x, myState.position.y, myState.position.z, myState.position.facing)
                 print("Resuming from saved state...")
-                print("(Orientation will be verified when leaving base)")
-                print("")
+                
+                -- If turtle is at home, verify orientation with chest detection
+                local atHome = (myState.position.x == config.HOME_X and 
+                               myState.position.y == config.HOME_Y and 
+                               myState.position.z == config.HOME_Z)
+                
+                if atHome then
+                    print("")
+                    print("At home base - verifying orientation...")
+                    if utils.detectOrientation() then
+                        utils.position.x = config.HOME_X
+                        utils.position.y = config.HOME_Y
+                        utils.position.z = config.HOME_Z
+                        myState.position = utils.position
+                        print("✓ Orientation verified: " .. utils.facingNames[utils.position.facing + 1])
+                        state.save(myState)
+                    else
+                        print("⚠ Could not verify orientation")
+                    end
+                    print("")
+                end
                 
                 return true
             end
@@ -176,15 +164,19 @@ local function initializeMiner()
     -- Set home position
     print("Home: X=" .. config.HOME_X .. " Y=" .. config.HOME_Y .. " Z=" .. config.HOME_Z)
     print("START_Y=" .. config.START_Y)
-    print("")
-    print("TIP: Press 'M' anytime to open menu")
-    print("")
     myState.homePosition = {x = config.HOME_X, y = config.HOME_Y, z = config.HOME_Z}
     
-    -- Set initial position (orientation will be detected when leaving base)
-    utils.setPosition(config.HOME_X, config.HOME_Y, config.HOME_Z, 0)
+    -- ORIENTATION DETECTION: Find which way is forward by detecting chests
+    print("")
+    if utils.detectOrientation() then
+        utils.setPosition(config.HOME_X, config.HOME_Y, config.HOME_Z, utils.position.facing)
+    else
+        -- Fallback: assume facing north if detection fails
+        print("⚠ Using default orientation (North)")
+        utils.setPosition(config.HOME_X, config.HOME_Y, config.HOME_Z, 0)
+    end
     myState.position = utils.position
-    print("Orientation will be detected when leaving base")
+    print("Facing: " .. utils.facingNames[utils.position.facing + 1])
     print("")
     
     state.save(myState)
@@ -244,62 +236,30 @@ end
 
 local function checkForCommands()
     -- Non-blocking check for messages
-    local event, side, channel, replyChannel, message = os.pullEvent()
+    local event, side, channel, replyChannel, message = os.pullEvent("modem_message")
     
-    -- Check for keyboard input (M key for menu)
-    if event == "key" then
-        local key = side
-        if key == keys.m then
-            -- Show GUI menu
-            print("")
-            print("Opening menu...")
-            local guiAction = turtleGUI.run()
+    if channel == config.MODEM_CHANNEL and type(message) == "table" then
+        if message.version == config.PROTOCOL_VERSION then
+            -- Check if it's a command for us
+            local msgType = message.type
             
-            if guiAction == "start_mining" then
-                -- Reload assignment if changed
-                local assignment = projectClient.loadAssignment()
-                if assignment then
-                    config.MODEM_CHANNEL = assignment.channel
-                    protocol.close()
-                    protocol.init()
-                    projectClient.reconnect()
-                    print("Reconnected to project")
-                end
-            elseif guiAction == "exit" then
-                running = false
-            end
-            
-            -- Redraw current state
-            print("")
-            print("Returning to operation...")
-            return true
-        end
-    end
-    
-    if event == "modem_message" then
-        if channel == config.MODEM_CHANNEL and type(message) == "table" then
-            if message.version == config.PROTOCOL_VERSION then
-                -- Check if it's a command for us
-                local msgType = message.type
+            if msgType == protocol.MSG_TYPES.CMD_PAUSE or
+               msgType == protocol.MSG_TYPES.CMD_RESUME or
+               msgType == protocol.MSG_TYPES.CMD_RETURN_BASE or
+               msgType == protocol.MSG_TYPES.CMD_SHUTDOWN or
+               msgType == protocol.MSG_TYPES.STATUS_QUERY then
                 
-                if msgType == protocol.MSG_TYPES.CMD_PAUSE or
-                   msgType == protocol.MSG_TYPES.CMD_RESUME or
-                   msgType == protocol.MSG_TYPES.CMD_RETURN_BASE or
-                   msgType == protocol.MSG_TYPES.CMD_SHUTDOWN or
-                   msgType == protocol.MSG_TYPES.STATUS_QUERY then
-                    
-                    -- Process immediately
-                    processCommand(message)
-                    return true
-                elseif msgType == protocol.MSG_TYPES.TUNNEL_ASSIGNED then
-                    -- Tunnel assignment response
-                    local assignment = message.data
-                    if assignment then
-                        state.assignTunnel(myState, assignment.layer, assignment.tunnel, 
-                                          assignment.startPos, assignment.endPos)
-                        print("Assigned tunnel: Layer " .. assignment.layer .. ", Tunnel " .. assignment.tunnel)
-                        state.save(myState)
-                    end
+                -- Process immediately
+                processCommand(message)
+                return true
+            elseif msgType == protocol.MSG_TYPES.TUNNEL_ASSIGNED then
+                -- Tunnel assignment response
+                local assignment = message.data
+                if assignment then
+                    state.assignTunnel(myState, assignment.layer, assignment.tunnel, 
+                                      assignment.startPos, assignment.endPos)
+                    print("Assigned tunnel: Layer " .. assignment.layer .. ", Tunnel " .. assignment.tunnel)
+                    state.save(myState)
                 end
             end
         end
@@ -487,27 +447,8 @@ function navigateToTunnelStart(assignment)
     print("Navigating to tunnel start...")
     print("Type: " .. (assignment.tunnelType or "unknown") .. ", Direction: " .. (assignment.direction or "unknown"))
     
-    -- Detect orientation if at home base (before leaving)
-    local currX, currY, currZ, currF = utils.getPosition()
-    local atHome = (currX == config.HOME_X and currY == config.HOME_Y and currZ == config.HOME_Z)
-    
-    if atHome then
-        print("")
-        print("At home base - detecting orientation...")
-        if utils.detectOrientation() then
-            utils.position.x = config.HOME_X
-            utils.position.y = config.HOME_Y
-            utils.position.z = config.HOME_Z
-            myState.position = utils.position
-            print("✓ Orientation detected: " .. utils.facingNames[utils.position.facing + 1])
-            state.save(myState)
-        else
-            print("⚠ Could not detect orientation - using current facing")
-        end
-        print("")
-    end
-    
     -- Debug: Show current position and target
+    local currX, currY, currZ, currF = utils.getPosition()
     print("Current: X=" .. currX .. " Y=" .. currY .. " Z=" .. currZ)
     
     local startPos = assignment.startPos
