@@ -605,6 +605,8 @@ local function mine3x3Section()
     local leftDir = (tunnelDir + 3) % 4
     local rightDir = (tunnelDir + 1) % 4
     
+    print("[3x3] Starting - tunnelDir=" .. tunnelDir .. " leftDir=" .. leftDir .. " rightDir=" .. rightDir)
+    
     -- Define the step pattern (level, row, action)
     local steps = {
         {level=1, row=1, action="dig", name="MM"},        -- Step 1: Middle-Middle (start)
@@ -620,21 +622,42 @@ local function mine3x3Section()
     
     -- Execute each step
     for i, step in ipairs(steps) do
-        print("[3x3] Step " .. i .. ": " .. step.name .. " (L" .. step.level .. ",R" .. step.row .. ")")
+        local posBefore = string.format("(%d,%d,%d) facing=%d", utils.position.x, utils.position.y, utils.position.z, utils.position.facing)
+        print("[3x3] Step " .. i .. ": " .. step.name .. " (L" .. step.level .. ",R" .. step.row .. ") " .. posBefore)
         
         -- Execute movement action FIRST
         if step.action == "move" then
+            print("[3x3]   Turning to " .. step.dir .. " then moving forward")
             utils.turnTo(step.dir)
-            if not utils.safeForward(false) then return false, 0 end
+            if not utils.safeForward(false) then 
+                print("[3x3]   ERROR: Forward movement failed!")
+                return false, 0 
+            end
         elseif step.action == "up" then
-            if not utils.safeUp(false) then return false, 0 end
+            print("[3x3]   Moving UP")
+            if not utils.safeUp(false) then 
+                print("[3x3]   ERROR: Up movement failed!")
+                return false, 0 
+            end
         elseif step.action == "down" then
-            if not utils.safeDown(false) then return false, 0 end
-        -- action="dig" means no movement, already at position
+            print("[3x3]   Moving DOWN")
+            if not utils.safeDown(false) then 
+                print("[3x3]   ERROR: Down movement failed!")
+                return false, 0 
+            end
+        else
+            print("[3x3]   No movement (dig in place)")
         end
         
+        local posAfter = string.format("(%d,%d,%d) facing=%d", utils.position.x, utils.position.y, utils.position.z, utils.position.facing)
+        print("[3x3]   After move: " .. posAfter)
+        
         -- THEN dig at this position
+        print("[3x3]   Digging at position...")
         oresFound = oresFound + digAt3x3Position(step.level, step.row, tunnelDir)
+        
+        local posAfterDig = string.format("(%d,%d,%d) facing=%d", utils.position.x, utils.position.y, utils.position.z, utils.position.facing)
+        print("[3x3]   After dig: " .. posAfterDig)
     end
     
     -- Return to MM (middle-middle) to advance
