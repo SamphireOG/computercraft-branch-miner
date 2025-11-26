@@ -553,6 +553,8 @@ local function digAt3x3Position(level, row, tunnelDir)
     -- level 0=bottom (dig up), 1=middle (dig both), 2=top (dig down)
     local oresFound = 0
     local wallProtection = config.WALL_PROTECTION
+    local leftDir = (tunnelDir + 3) % 4
+    local rightDir = (tunnelDir + 1) % 4
     
     -- Check for ore and mine veins
     if utils.isOre("up") then oresFound = oresFound + utils.mineVein("up") end
@@ -571,7 +573,7 @@ local function digAt3x3Position(level, row, tunnelDir)
         utils.safeDig("down")
     end
     
-    -- Wall protection
+    -- Wall protection - use ABSOLUTE directions
     if wallProtection then
         if level == 0 then
             oresFound = oresFound + checkAndProtectWall("down", "floor")
@@ -580,17 +582,20 @@ local function digAt3x3Position(level, row, tunnelDir)
         end
         
         if row == 0 then
-            -- Left column
-            utils.turnLeft()
+            -- Left column - turn to absolute left direction
+            utils.turnTo(leftDir)
             oresFound = oresFound + checkAndProtectWall("forward", "left-wall")
-            utils.turnRight()
+            utils.turnTo(tunnelDir)  -- Return to tunnel direction
         elseif row == 2 then
-            -- Right column
-            utils.turnRight()
+            -- Right column - turn to absolute right direction
+            utils.turnTo(rightDir)
             oresFound = oresFound + checkAndProtectWall("forward", "right-wall")
-            utils.turnLeft()
+            utils.turnTo(tunnelDir)  -- Return to tunnel direction
         end
     end
+    
+    -- Ensure facing tunnel direction before returning
+    utils.turnTo(tunnelDir)
     
     return oresFound
 end
@@ -666,10 +671,13 @@ local function mineTunnelSection()
         return mine3x3Section()
         
     elseif tunnelSize == "2x2" then
-        -- 2x2: Visit all 4 blocks (BL, BR, TL, TR pattern)
-        -- Start at bottom-left, go right, up-left, right, down to next
+        -- 2x2: Visit all 4 blocks (MM, BL, BR, TL, TR pattern)
+        -- Get absolute directions
+        local tunnelDir = utils.position.facing
+        local leftDir = (tunnelDir + 3) % 4
+        local rightDir = (tunnelDir + 1) % 4
         
-        -- Clear current position
+        -- Clear current position (middle)
         if utils.isOre("up") then oresFound = oresFound + utils.mineVein("up")
         else utils.safeDig("up") end
         if utils.isOre("down") then oresFound = oresFound + utils.mineVein("down")
@@ -677,57 +685,53 @@ local function mineTunnelSection()
         
         -- Move to BL (bottom-left)
         if not utils.safeDown(false) then return false, 0 end
-        utils.turnLeft()
+        utils.turnTo(leftDir)
         if utils.isOre("forward") then oresFound = oresFound + utils.mineVein("forward")
         else utils.safeDig("forward") end
         if not utils.safeForward(false) then return false, 0 end
         
         if wallProtection then
-            oresFound = oresFound + checkAndProtectWall("down", "floor-BL")
+            oresFound = oresFound + checkAndProtectWall("down", "floor")
             oresFound = oresFound + checkAndProtectWall("forward", "left-wall")
         end
         
-        -- Move to BR (bottom-right)
-        utils.turnRight()
+        -- Move to BR (bottom-right) - turn to tunnel dir, move forward 2x
+        utils.turnTo(tunnelDir)
         if utils.isOre("forward") then oresFound = oresFound + utils.mineVein("forward")
         else utils.safeDig("forward") end
         if not utils.safeForward(false) then return false, 0 end
         if not utils.safeForward(false) then return false, 0 end
         
         if wallProtection then
-            oresFound = oresFound + checkAndProtectWall("down", "floor-BR")
-            utils.turnRight()
+            oresFound = oresFound + checkAndProtectWall("down", "floor")
+            utils.turnTo(rightDir)
             oresFound = oresFound + checkAndProtectWall("forward", "right-wall")
-            utils.turnLeft()
+            utils.turnTo(tunnelDir)
         end
         
         -- Move to TR (top-right)
         if not utils.safeUp(false) then return false, 0 end
         if wallProtection then
-            oresFound = oresFound + checkAndProtectWall("up", "ceiling-TR")
-            utils.turnRight()
+            oresFound = oresFound + checkAndProtectWall("up", "ceiling")
+            utils.turnTo(rightDir)
             oresFound = oresFound + checkAndProtectWall("forward", "right-wall")
-            utils.turnLeft()
+            utils.turnTo(tunnelDir)
         end
         
-        -- Move to TL (top-left)
-        utils.turnLeft()
+        -- Move to TL (top-left) - turn left, move 2x
+        utils.turnTo(leftDir)
         if not utils.safeForward(false) then return false, 0 end
         if not utils.safeForward(false) then return false, 0 end
-        utils.turnRight()
         
         if wallProtection then
-            oresFound = oresFound + checkAndProtectWall("up", "ceiling-TL")
-            utils.turnLeft()
+            oresFound = oresFound + checkAndProtectWall("up", "ceiling")
             oresFound = oresFound + checkAndProtectWall("forward", "left-wall")
-            utils.turnRight()
         end
         
         -- Return to middle and advance
         if not utils.safeDown(false) then return false, 0 end
-        utils.turnRight()
+        utils.turnTo(tunnelDir)
         if not utils.safeForward(false) then return false, 0 end
-        utils.turnLeft()
         
         -- Move forward through tunnel
         if utils.isOre("forward") then oresFound = oresFound + utils.mineVein("forward")
@@ -738,6 +742,11 @@ local function mineTunnelSection()
         
     else
         -- 2x1 (default): Simple 2-block vertical (just top and current)
+        -- Get absolute directions
+        local tunnelDir = utils.position.facing
+        local leftDir = (tunnelDir + 3) % 4
+        local rightDir = (tunnelDir + 1) % 4
+        
         -- Mine ceiling
         if utils.isOre("up") then oresFound = oresFound + utils.mineVein("up")
         else utils.safeDig("up") end
@@ -753,15 +762,14 @@ local function mineTunnelSection()
             return false, 0
         end
         
-        -- Check walls if protection enabled
+        -- Check walls if protection enabled (use absolute directions)
         if wallProtection then
             oresFound = oresFound + checkAndProtectWall("up", "ceiling")
-            utils.turnLeft()
-            oresFound = oresFound + checkAndProtectWall("forward", "left wall")
-            utils.turnRight()
-            utils.turnRight()
-            oresFound = oresFound + checkAndProtectWall("forward", "right wall")
-            utils.turnLeft()
+            utils.turnTo(leftDir)
+            oresFound = oresFound + checkAndProtectWall("forward", "left-wall")
+            utils.turnTo(rightDir)
+            oresFound = oresFound + checkAndProtectWall("forward", "right-wall")
+            utils.turnTo(tunnelDir)  -- Return to tunnel direction
         end
         
         return true, oresFound
