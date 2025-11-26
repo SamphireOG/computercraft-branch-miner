@@ -18,6 +18,36 @@ local lastSave = 0
 
 -- ========== INITIALIZATION ==========
 
+local function fetchProjectSettings()
+    -- Request current project settings from coordinator
+    print("Fetching project settings...")
+    
+    protocol.send(protocol.MSG_TYPES.PROJECT_SETTINGS_REQUEST, {
+        turtleID = os.getComputerID()
+    })
+    
+    -- Wait for response (5 second timeout)
+    local timer = os.startTimer(5)
+    
+    while true do
+        local event, p1, p2, p3, p4, p5 = os.pullEvent()
+        
+        if event == "timer" and p1 == timer then
+            print("WARNING: Timeout fetching settings - using defaults")
+            return nil
+            
+        elseif event == "modem_message" then
+            local message = p4
+            
+            if type(message) == "table" and message.type == protocol.MSG_TYPES.PROJECT_SETTINGS_RESPONSE then
+                os.cancelTimer(timer)
+                print("Received project settings")
+                return message.data
+            end
+        end
+    end
+end
+
 local function initializeMiner()
     print("=== Advanced Branch Miner ===")
     print("Turtle: " .. utils.getLabel())
@@ -67,15 +97,43 @@ local function initializeMiner()
             end
         end
         
-        -- Load tunnel size and wall protection from project settings
-        if assignment.tunnelSize then
-            config.TUNNEL_SIZE = assignment.tunnelSize
-            print("Tunnel Size: " .. assignment.tunnelSize)
-        end
+        -- Fetch current project settings from coordinator
+        local projectSettings = fetchProjectSettings()
         
-        if assignment.wallProtection ~= nil then
-            config.WALL_PROTECTION = assignment.wallProtection
-            print("Wall Protection: " .. tostring(assignment.wallProtection))
+        if projectSettings then
+            -- Apply fetched settings
+            if projectSettings.tunnelSize then
+                config.TUNNEL_SIZE = projectSettings.tunnelSize
+                print("Tunnel Size: " .. projectSettings.tunnelSize)
+            end
+            
+            if projectSettings.wallProtection ~= nil then
+                config.WALL_PROTECTION = projectSettings.wallProtection
+                print("Wall Protection: " .. tostring(projectSettings.wallProtection))
+            end
+            
+            if projectSettings.tunnelLength then
+                config.TUNNEL_LENGTH = projectSettings.tunnelLength
+            end
+            
+            if projectSettings.numLayers then
+                config.NUM_LAYERS = projectSettings.numLayers
+            end
+        else
+            -- Fallback to assignment file settings or defaults
+            if assignment.tunnelSize then
+                config.TUNNEL_SIZE = assignment.tunnelSize
+                print("Tunnel Size (from cache): " .. assignment.tunnelSize)
+            else
+                print("Using default Tunnel Size: " .. config.TUNNEL_SIZE)
+            end
+            
+            if assignment.wallProtection ~= nil then
+                config.WALL_PROTECTION = assignment.wallProtection
+                print("Wall Protection (from cache): " .. tostring(assignment.wallProtection))
+            else
+                print("Using default Wall Protection: " .. tostring(config.WALL_PROTECTION))
+            end
         end
         
         -- Close old modem connection and switch to project channel
