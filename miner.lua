@@ -58,13 +58,24 @@ local function initializeMiner()
                 config.HOME_Y = yLevel
                 -- Update assignment file with new startY
                 assignment.startY = yLevel
-                projectClient.saveAssignment(assignment.projectName, assignment.channel, yLevel)
+                projectClient.saveAssignment(assignment.projectName, assignment.channel, yLevel, assignment.tunnelSize, assignment.wallProtection)
                 print("Y Level set to: " .. yLevel)
             else
                 print("ERROR: Invalid Y level entered")
                 print("Please restart and enter a valid number")
                 return false
             end
+        end
+        
+        -- Load tunnel size and wall protection from project settings
+        if assignment.tunnelSize then
+            config.TUNNEL_SIZE = assignment.tunnelSize
+            print("Tunnel Size: " .. assignment.tunnelSize)
+        end
+        
+        if assignment.wallProtection ~= nil then
+            config.WALL_PROTECTION = assignment.wallProtection
+            print("Wall Protection: " .. tostring(assignment.wallProtection))
         end
         
         -- Close old modem connection and switch to project channel
