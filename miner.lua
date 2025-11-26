@@ -556,11 +556,7 @@ local function digAt3x3Position(level, row, tunnelDir)
     local leftDir = (tunnelDir + 3) % 4
     local rightDir = (tunnelDir + 1) % 4
     
-    -- Check for ore and mine veins
-    if utils.isOre("up") then oresFound = oresFound + utils.mineVein("up") end
-    if utils.isOre("down") then oresFound = oresFound + utils.mineVein("down") end
-    
-    -- Dig based on level
+    -- Dig based on level (just break blocks, don't mine veins to avoid movement)
     if level == 0 then
         -- Bottom: dig up only
         utils.safeDig("up")
