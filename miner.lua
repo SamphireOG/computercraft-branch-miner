@@ -608,50 +608,69 @@ local function mine3x3Section()
     local leftDir = (tunnelDir + 3) % 4
     local rightDir = (tunnelDir + 1) % 4
     
+    print("[3x3] Starting at MM (middle-middle)")
+    
     -- Step 1: MM (middle-middle, level=1 row=1)
     oresFound = oresFound + digAt3x3Position(1, 1, tunnelDir)
     
     -- Step 2: Move right to MR (level=1 row=2)
+    print("[3x3] Step 2: Moving RIGHT to MR")
     utils.turnTo(rightDir)
     if not utils.safeForward(false) then return false, 0 end
     oresFound = oresFound + digAt3x3Position(1, 2, tunnelDir)
     
     -- Step 3: Move down to BR (level=0 row=2)
+    print("[3x3] Step 3: Moving DOWN to BR")
     if not utils.safeDown(false) then return false, 0 end
     oresFound = oresFound + digAt3x3Position(0, 2, tunnelDir)
     
     -- Step 4: Move left to BM (level=0 row=1)
+    print("[3x3] Step 4: Turning LEFT and moving to BM")
     utils.turnTo(leftDir)
     if not utils.safeForward(false) then return false, 0 end
     oresFound = oresFound + digAt3x3Position(0, 1, tunnelDir)
     
     -- Step 5: Move left to BL (level=0 row=0)
+    print("[3x3] Step 5: Turning LEFT again and moving to BL")
+    -- digAt3x3Position turned us back to tunnelDir, so turn left again
+    utils.turnTo(leftDir)
     if not utils.safeForward(false) then return false, 0 end
     oresFound = oresFound + digAt3x3Position(0, 0, tunnelDir)
     
     -- Step 6: Move up to ML (level=1 row=0)
-    if not utils.safeUp(false) then return false, 0 end
+    print("[3x3] Step 6: Moving UP to ML - facing=" .. utils.position.facing)
+    if not utils.safeUp(false) then 
+        print("[3x3] ERROR: Failed to move up!")
+        return false, 0 
+    end
     oresFound = oresFound + digAt3x3Position(1, 0, tunnelDir)
     
     -- Step 7: Move up to TL (level=2 row=0)
+    print("[3x3] Step 7: Moving UP to TL")
     if not utils.safeUp(false) then return false, 0 end
     oresFound = oresFound + digAt3x3Position(2, 0, tunnelDir)
     
     -- Step 8: Move right to TM (level=2 row=1)
+    print("[3x3] Step 8: Turning RIGHT and moving to TM")
     utils.turnTo(rightDir)
     if not utils.safeForward(false) then return false, 0 end
     oresFound = oresFound + digAt3x3Position(2, 1, tunnelDir)
     
     -- Step 9: Move right to TR (level=2 row=2)
+    print("[3x3] Step 9: Turning RIGHT again and moving to TR")
+    -- digAt3x3Position turned us back to tunnelDir, so turn right again
+    utils.turnTo(rightDir)
     if not utils.safeForward(false) then return false, 0 end
     oresFound = oresFound + digAt3x3Position(2, 2, tunnelDir)
     
     -- Return to MM (middle-middle)
+    print("[3x3] Returning to MM")
     if not utils.safeDown(false) then return false, 0 end  -- TR to MR
     utils.turnTo(leftDir)
     if not utils.safeForward(false) then return false, 0 end  -- MR to MM
     
     -- Move forward to next cross-section
+    print("[3x3] Advancing to next cross-section")
     utils.turnTo(tunnelDir)
     if utils.isOre("forward") then oresFound = oresFound + utils.mineVein("forward")
     else utils.safeDig("forward") end
