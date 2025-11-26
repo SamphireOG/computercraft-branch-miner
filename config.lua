@@ -14,8 +14,8 @@ local config = {
     BRANCH_SPACING = {
         ["2x1"] = 3,             -- 2x1 tunnels: 3 blocks apart
         ["2x2"] = 5,             -- 2x2 tunnels: 5 blocks apart
-        ["3x3"] = 7,             -- 3x3 tunnels: 7 blocks apart
-    }
+        ["3x3"] = 7              -- 3x3 tunnels: 7 blocks apart
+    },
     
     -- Tunnel features
     WALL_PROTECTION = true,      -- Check walls for ore/holes and fill them (set by project)
