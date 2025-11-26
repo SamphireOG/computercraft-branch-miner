@@ -12,7 +12,9 @@ local FILES = {
         "utils.lua",
         "coordinator.lua",
         "miner.lua",
-        "project-client.lua"
+        "project-client.lua",
+        "gui.lua",
+        "turtle-gui.lua"
     },
     controller = {
         "config.lua",
@@ -409,14 +411,12 @@ local function main()
         return
     end
     
-    -- Project-based configuration
+    -- Project configuration moved to GUI
     if deviceType == "turtle" then
-        local configSuccess, result = configureTurtle()
-        
-        if not configSuccess then
-            print("Configuration failed!")
-            return
-        end
+        print("")
+        print("Project joining is now in the GUI!")
+        print("After starting, use the menu to join a project.")
+        sleep(2)
     end
     
     -- Create startup file
@@ -439,7 +439,11 @@ local function main()
         print("   - Front: Ores/items")
         print("   - Above: Fuel")
         print("")
-        print("Start mining now? (Y/N)")
+        print("The GUI will open on startup where")
+        print("you can join a project and configure")
+        print("settings. Press 'M' anytime for menu.")
+        print("")
+        print("Start now? (Y/N)")
         local startNow = read()
         
         if startNow:lower() == "y" then

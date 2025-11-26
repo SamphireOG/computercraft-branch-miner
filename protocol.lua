@@ -47,7 +47,7 @@ protocol.MSG_TYPES = {
     PROJECT_JOIN_RESPONSE = "PROJECT_JOIN_RESPONSE", -- PC assigns channel & approves
     PROJECT_JOIN_CONFIRM = "PROJECT_JOIN_CONFIRM",   -- Turtle confirms joining
     TURTLE_ONLINE = "TURTLE_ONLINE",                 -- Turtle announces it's online
-    TURTLE_OFFLINE = "TURTLE_OFFLINE"                -- Turtle announces it's going offline
+    TURTLE_OFFLINE = "TURTLE_OFFLINE",               -- Turtle announces it's going offline
 }
 
 -- ========== MODEM MANAGEMENT ==========

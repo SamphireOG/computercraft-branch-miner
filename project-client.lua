@@ -18,13 +18,11 @@ local function getAssignmentFilename()
     return "turtle_assignment.cfg"
 end
 
-function client.saveAssignment(projectName, channel, startY, tunnelSize, wallProtection)
+function client.saveAssignment(projectName, channel, startY)
     local assignment = {
         projectName = projectName,
         channel = channel,
         startY = startY,  -- Save Y level so turtle knows its position without GPS
-        tunnelSize = tunnelSize or "2x2",  -- Tunnel size from project settings
-        wallProtection = wallProtection or true,  -- Wall protection from project settings
         assignedAt = os.epoch("utc"),
         turtleID = os.getComputerID(),
         label = os.getComputerLabel()
@@ -175,8 +173,8 @@ function client.joinProject(projectName)
                         os.cancelTimer(timer)
                         
                         if message.success then
-                            -- Save assignment (including project settings)
-                            client.saveAssignment(message.projectName, message.channel, message.startY, message.tunnelSize, message.wallProtection)
+                            -- Save assignment (including startY for position tracking)
+                            client.saveAssignment(message.projectName, message.channel, message.startY)
                             
                             -- Send confirmation
                             protocol.modem.transmit(DISCOVERY_CHANNEL, DISCOVERY_CHANNEL, {

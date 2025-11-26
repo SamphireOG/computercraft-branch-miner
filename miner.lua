@@ -7,6 +7,7 @@ local state = require("state")
 local utils = require("utils")
 local coordinator = require("coordinator")
 local projectClient = require("project-client")
+local turtleGUI = require("turtle-gui")
 
 -- ========== GLOBAL STATE ==========
 
@@ -58,7 +59,7 @@ local function initializeMiner()
                 config.HOME_Y = yLevel
                 -- Update assignment file with new startY
                 assignment.startY = yLevel
-                projectClient.saveAssignment(assignment.projectName, assignment.channel, yLevel, assignment.tunnelSize, assignment.wallProtection)
+                projectClient.saveAssignment(assignment.projectName, assignment.channel, yLevel)
                 print("Y Level set to: " .. yLevel)
             else
                 print("ERROR: Invalid Y level entered")
@@ -66,22 +67,6 @@ local function initializeMiner()
                 return false
             end
         end
-        
-        -- Load project settings from assignment file
-        if assignment.tunnelSize then
-            config.TUNNEL_SIZE = assignment.tunnelSize
-            print("Tunnel Size: " .. assignment.tunnelSize)
-        else
-            print("Using default Tunnel Size: " .. config.TUNNEL_SIZE)
-        end
-        
-        if assignment.wallProtection ~= nil then
-            config.WALL_PROTECTION = assignment.wallProtection
-            print("Wall Protection: " .. tostring(assignment.wallProtection))
-        else
-            print("Using default Wall Protection: " .. tostring(config.WALL_PROTECTION))
-        end
-        print("")
         
         -- Close old modem connection and switch to project channel
         protocol.close()
@@ -101,9 +86,40 @@ local function initializeMiner()
         print("")
     else
         print("WARNING: No project assignment found!")
-        print("Run installer to join a project.")
         print("")
-        return false
+        print("Opening GUI to join a project...")
+        sleep(2)
+        
+        -- Show GUI for project management
+        local guiAction = turtleGUI.run()
+        
+        if guiAction == "start_mining" then
+            -- User joined a project and wants to start
+            -- Reload assignment
+            assignment = projectClient.loadAssignment()
+            
+            if not assignment then
+                print("ERROR: No project assignment!")
+                return false
+            end
+            
+            -- Load project settings
+            if assignment.startY then
+                config.START_Y = assignment.startY
+                config.HOME_Y = assignment.startY
+            end
+            
+            -- Switch to project channel
+            protocol.close()
+            config.MODEM_CHANNEL = assignment.channel
+            protocol.init()
+            
+            -- Reconnect
+            projectClient.reconnect()
+        else
+            -- User exited
+            return false
+        end
     end
     
     -- Try to load saved state
@@ -179,6 +195,9 @@ local function initializeMiner()
     -- Set home position
     print("Home: X=" .. config.HOME_X .. " Y=" .. config.HOME_Y .. " Z=" .. config.HOME_Z)
     print("START_Y=" .. config.START_Y)
+    print("")
+    print("TIP: Press 'M' anytime to open menu")
+    print("")
     myState.homePosition = {x = config.HOME_X, y = config.HOME_Y, z = config.HOME_Z}
     
     -- ORIENTATION DETECTION: Find which way is forward by detecting chests
@@ -251,30 +270,62 @@ end
 
 local function checkForCommands()
     -- Non-blocking check for messages
-    local event, side, channel, replyChannel, message = os.pullEvent("modem_message")
+    local event, side, channel, replyChannel, message = os.pullEvent()
     
-    if channel == config.MODEM_CHANNEL and type(message) == "table" then
-        if message.version == config.PROTOCOL_VERSION then
-            -- Check if it's a command for us
-            local msgType = message.type
+    -- Check for keyboard input (M key for menu)
+    if event == "key" then
+        local key = side
+        if key == keys.m then
+            -- Show GUI menu
+            print("")
+            print("Opening menu...")
+            local guiAction = turtleGUI.run()
             
-            if msgType == protocol.MSG_TYPES.CMD_PAUSE or
-               msgType == protocol.MSG_TYPES.CMD_RESUME or
-               msgType == protocol.MSG_TYPES.CMD_RETURN_BASE or
-               msgType == protocol.MSG_TYPES.CMD_SHUTDOWN or
-               msgType == protocol.MSG_TYPES.STATUS_QUERY then
-                
-                -- Process immediately
-                processCommand(message)
-                return true
-            elseif msgType == protocol.MSG_TYPES.TUNNEL_ASSIGNED then
-                -- Tunnel assignment response
-                local assignment = message.data
+            if guiAction == "start_mining" then
+                -- Reload assignment if changed
+                local assignment = projectClient.loadAssignment()
                 if assignment then
-                    state.assignTunnel(myState, assignment.layer, assignment.tunnel, 
-                                      assignment.startPos, assignment.endPos)
-                    print("Assigned tunnel: Layer " .. assignment.layer .. ", Tunnel " .. assignment.tunnel)
-                    state.save(myState)
+                    config.MODEM_CHANNEL = assignment.channel
+                    protocol.close()
+                    protocol.init()
+                    projectClient.reconnect()
+                    print("Reconnected to project")
+                end
+            elseif guiAction == "exit" then
+                running = false
+            end
+            
+            -- Redraw current state
+            print("")
+            print("Returning to operation...")
+            return true
+        end
+    end
+    
+    if event == "modem_message" then
+        if channel == config.MODEM_CHANNEL and type(message) == "table" then
+            if message.version == config.PROTOCOL_VERSION then
+                -- Check if it's a command for us
+                local msgType = message.type
+                
+                if msgType == protocol.MSG_TYPES.CMD_PAUSE or
+                   msgType == protocol.MSG_TYPES.CMD_RESUME or
+                   msgType == protocol.MSG_TYPES.CMD_RETURN_BASE or
+                   msgType == protocol.MSG_TYPES.CMD_SHUTDOWN or
+                   msgType == protocol.MSG_TYPES.STATUS_QUERY then
+                    
+                    -- Process immediately
+                    processCommand(message)
+                    return true
+                elseif msgType == protocol.MSG_TYPES.TUNNEL_ASSIGNED then
+                    -- Tunnel assignment response
+                    local assignment = message.data
+                    if assignment then
+                        state.assignTunnel(myState, assignment.layer, assignment.tunnel, 
+                                          assignment.startPos, assignment.endPos)
+                        print("Assigned tunnel: Layer " .. assignment.layer .. ", Tunnel " .. assignment.tunnel)
+                        state.save(myState)
+                    end
                 end
             end
         end
@@ -564,155 +615,133 @@ local function checkAndProtectWall(direction, wallName)
     return oresFound
 end
 
-local function digAt3x3Position(level, row, tunnelDir)
-    -- Dig vertically based on level (like reference file's digCurrentSpot)
-    -- level 0=bottom (dig up), 1=middle (dig both), 2=top (dig down)
+local function mine3x3Section()
+    -- Mine a complete 3x3 cross-section, visiting all 9 blocks
+    -- Pattern: Bottom-Left -> Bottom-Middle -> Bottom-Right -> Middle-Left -> 
+    --          Middle-Middle -> Middle-Right -> Top-Left -> Top-Middle -> Top-Right
     local oresFound = 0
     local wallProtection = config.WALL_PROTECTION
-    local leftDir = (tunnelDir + 3) % 4
-    local rightDir = (tunnelDir + 1) % 4
+    local startFacing = utils.position.facing
     
-    -- Dig based on level (match reference file)
-    if level == 0 then
-        -- Bottom: dig up only
-        utils.safeDig("up")
-    elseif level == 1 then
-        -- Middle: dig down then up
-        utils.safeDig("down")
-        utils.safeDig("up")
-    elseif level == 2 then
-        -- Top: dig down only
-        utils.safeDig("down")
-    end
+    -- Start at middle-middle (current position)
+    -- Step 1: Clear center column (up and down from MM)
+    if utils.isOre("up") then oresFound = oresFound + utils.mineVein("up")
+    else utils.safeDig("up") end
     
-    -- Wall protection (only check side walls for edge columns)
+    if utils.isOre("down") then oresFound = oresFound + utils.mineVein("down")
+    else utils.safeDig("down") end
+    
+    -- Step 2: Move to bottom-left corner (BL)
+    if not utils.safeDown(false) then return false, 0 end
+    utils.turnLeft()  -- Turn to face left
+    if utils.isOre("forward") then oresFound = oresFound + utils.mineVein("forward")
+    else utils.safeDig("forward") end
+    if not utils.safeForward(false) then return false, 0 end
+    
+    -- At BL - mine and check walls
+    if utils.isOre("down") then oresFound = oresFound + utils.mineVein("down")
+    else utils.safeDig("down") end
     if wallProtection then
-        -- Check floor/ceiling based on level
-        if level == 0 then
-            oresFound = oresFound + checkAndProtectWall("down", "floor")
-        elseif level == 2 then
-            oresFound = oresFound + checkAndProtectWall("up", "ceiling")
-        end
-        
-        -- Check side walls for edge columns (row 0=left, row 2=right)
-        if row == 0 then
-            -- Left column - check left wall
-            local currentFacing = utils.position.facing
-            utils.turnTo(leftDir)
-            oresFound = oresFound + checkAndProtectWall("forward", "left-wall")
-            utils.turnTo(currentFacing)  -- Restore original facing
-        elseif row == 2 then
-            -- Right column - check right wall
-            local currentFacing = utils.position.facing
-            utils.turnTo(rightDir)
-            oresFound = oresFound + checkAndProtectWall("forward", "right-wall")
-            utils.turnTo(currentFacing)  -- Restore original facing
-        end
+        oresFound = oresFound + checkAndProtectWall("down", "floor-BL")
+        oresFound = oresFound + checkAndProtectWall("forward", "left-wall-BL")
     end
     
-    return oresFound
-end
-
-local function mine3x3Section()
-    print("=== MINE 3x3 SECTION CALLED ===")
-    -- Mine 3x3 using TABLE-DRIVEN pattern from reference file
-    -- Pattern: MM→MR→BR→BM→BL→ML→TL→TM→TR
-    local oresFound = 0
-    local tunnelDir = utils.position.facing
-    local leftDir = (tunnelDir + 3) % 4
-    local rightDir = (tunnelDir + 1) % 4
-    
-    print("[3x3] Starting - tunnelDir=" .. tunnelDir .. " leftDir=" .. leftDir .. " rightDir=" .. rightDir)
-    
-    -- Define the step pattern (level, row, action)
-    local steps = {
-        {level=1, row=1, action="dig", name="MM"},        -- Step 1: Middle-Middle (start)
-        {level=1, row=2, action="move", dir=rightDir, name="MR"},  -- Step 2: move right
-        {level=0, row=2, action="down", name="BR"},       -- Step 3: move down
-        {level=0, row=1, action="move", dir=leftDir, name="BM"},   -- Step 4: move left
-        {level=0, row=0, action="move", dir=leftDir, name="BL"},   -- Step 5: move left
-        {level=1, row=0, action="up", name="ML"},         -- Step 6: move up
-        {level=2, row=0, action="up", name="TL"},         -- Step 7: move up
-        {level=2, row=1, action="move", dir=rightDir, name="TM"},  -- Step 8: move right
-        {level=2, row=2, action="move", dir=rightDir, name="TR"}   -- Step 9: move right
-    }
-    
-    -- Execute each step
-    for i, step in ipairs(steps) do
-        local posBefore = string.format("(%d,%d,%d) facing=%d", utils.position.x, utils.position.y, utils.position.z, utils.position.facing)
-        print("[3x3] Step " .. i .. ": " .. step.name .. " (L" .. step.level .. ",R" .. step.row .. ") " .. posBefore)
-        
-        -- Execute movement action FIRST
-        if step.action == "move" then
-            print("[3x3]   Turning to " .. step.dir .. " then moving forward")
-            utils.turnTo(step.dir)
-            if not utils.safeForward(false) then 
-                print("[3x3]   ERROR: Forward movement failed!")
-                return false, 0 
-            end
-        elseif step.action == "up" then
-            print("[3x3]   Moving UP")
-            if not utils.safeUp(false) then 
-                print("[3x3]   ERROR: Up movement failed!")
-                return false, 0 
-            end
-        elseif step.action == "down" then
-            print("[3x3]   Moving DOWN")
-            if not utils.safeDown(false) then 
-                print("[3x3]   ERROR: Down movement failed!")
-                return false, 0 
-            end
-        else
-            print("[3x3]   No movement (dig in place)")
-        end
-        
-        local posAfter = string.format("(%d,%d,%d) facing=%d", utils.position.x, utils.position.y, utils.position.z, utils.position.facing)
-        print("[3x3]   After move: " .. posAfter)
-        
-        -- THEN dig at this position
-        print("[3x3]   Digging at position...")
-        oresFound = oresFound + digAt3x3Position(step.level, step.row, tunnelDir)
-        
-        local posAfterDig = string.format("(%d,%d,%d) facing=%d", utils.position.x, utils.position.y, utils.position.z, utils.position.facing)
-        print("[3x3]   After dig: " .. posAfterDig)
+    -- Step 3: Move to BM (bottom-middle)
+    utils.turnRight()  -- Face tunnel direction
+    if utils.isOre("forward") then oresFound = oresFound + utils.mineVein("forward")
+    else utils.safeDig("forward") end
+    if not utils.safeForward(false) then return false, 0 end
+    if wallProtection then
+        oresFound = oresFound + checkAndProtectWall("down", "floor-BM")
     end
     
-    -- Return to MM (middle-middle) to advance
-    print("[3x3] Returning to MM for advance")
-    if not utils.safeDown(false) then return false, 0 end  -- TR to MR
-    utils.turnTo(leftDir)
-    if not utils.safeForward(false) then return false, 0 end  -- MR to MM
+    -- Step 4: Move to BR (bottom-right)
+    if utils.isOre("forward") then oresFound = oresFound + utils.mineVein("forward")
+    else utils.safeDig("forward") end
+    if not utils.safeForward(false) then return false, 0 end
+    if wallProtection then
+        oresFound = oresFound + checkAndProtectWall("down", "floor-BR")
+        utils.turnRight()
+        oresFound = oresFound + checkAndProtectWall("forward", "right-wall-BR")
+        utils.turnLeft()
+    end
     
-    -- Move forward to next cross-section
-    print("[3x3] Advancing to next cross-section")
-    utils.turnTo(tunnelDir)
-    utils.safeDig("forward")
+    -- Step 5: Move up to MR (middle-right)
+    if not utils.safeUp(false) then return false, 0 end
+    if wallProtection then
+        utils.turnRight()
+        oresFound = oresFound + checkAndProtectWall("forward", "right-wall-MR")
+        utils.turnLeft()
+    end
+    
+    -- Step 6: Move to MM (middle-middle) - already cleared
+    utils.turnLeft()  -- Face back
+    if not utils.safeForward(false) then return false, 0 end
+    
+    -- Step 7: Move to ML (middle-left)
+    if not utils.safeForward(false) then return false, 0 end
+    if wallProtection then
+        utils.turnRight()
+        oresFound = oresFound + checkAndProtectWall("forward", "left-wall-ML")
+        utils.turnLeft()
+    end
+    
+    -- Step 8: Move up to TL (top-left)
+    if not utils.safeUp(false) then return false, 0 end
+    if utils.isOre("up") then oresFound = oresFound + utils.mineVein("up")
+    else utils.safeDig("up") end
+    if wallProtection then
+        oresFound = oresFound + checkAndProtectWall("up", "ceiling-TL")
+        utils.turnRight()
+        oresFound = oresFound + checkAndProtectWall("forward", "left-wall-TL")
+        utils.turnLeft()
+    end
+    
+    -- Step 9: Move to TM (top-middle)
+    utils.turnRight()  -- Face tunnel direction
+    if not utils.safeForward(false) then return false, 0 end
+    if wallProtection then
+        oresFound = oresFound + checkAndProtectWall("up", "ceiling-TM")
+    end
+    
+    -- Step 10: Move to TR (top-right)
+    if not utils.safeForward(false) then return false, 0 end
+    if wallProtection then
+        oresFound = oresFound + checkAndProtectWall("up", "ceiling-TR")
+        utils.turnRight()
+        oresFound = oresFound + checkAndProtectWall("forward", "right-wall-TR")
+        utils.turnLeft()
+    end
+    
+    -- Step 11: Return to MM (middle-middle) for forward movement
+    if not utils.safeDown(false) then return false, 0 end
+    utils.turnLeft()  -- Face back
+    if not utils.safeForward(false) then return false, 0 end
+    utils.turnRight()  -- Face tunnel direction again
+    
+    -- Step 12: Move forward one block (advance through tunnel)
+    if utils.isOre("forward") then oresFound = oresFound + utils.mineVein("forward")
+    else utils.safeDig("forward") end
     if not utils.safeForward(true) then return false, 0 end
     
     return true, oresFound
 end
 
 local function mineTunnelSection()
-    print("*** mineTunnelSection CALLED ***")
     -- Mine tunnel section based on configured size (2x1, 2x2, or 3x3)
     local oresFound = 0
     local tunnelSize = config.TUNNEL_SIZE or "2x2"
     local wallProtection = config.WALL_PROTECTION
-    print("*** tunnelSize = " .. tunnelSize .. " ***")
     
     if tunnelSize == "3x3" then
-        print("*** CALLING mine3x3Section ***")
         -- 3x3: Visit all 9 blocks in cross-section
         return mine3x3Section()
         
     elseif tunnelSize == "2x2" then
-        -- 2x2: Visit all 4 blocks (MM, BL, BR, TL, TR pattern)
-        -- Get absolute directions
-        local tunnelDir = utils.position.facing
-        local leftDir = (tunnelDir + 3) % 4
-        local rightDir = (tunnelDir + 1) % 4
+        -- 2x2: Visit all 4 blocks (BL, BR, TL, TR pattern)
+        -- Start at bottom-left, go right, up-left, right, down to next
         
-        -- Clear current position (middle)
+        -- Clear current position
         if utils.isOre("up") then oresFound = oresFound + utils.mineVein("up")
         else utils.safeDig("up") end
         if utils.isOre("down") then oresFound = oresFound + utils.mineVein("down")
@@ -720,53 +749,57 @@ local function mineTunnelSection()
         
         -- Move to BL (bottom-left)
         if not utils.safeDown(false) then return false, 0 end
-        utils.turnTo(leftDir)
+        utils.turnLeft()
         if utils.isOre("forward") then oresFound = oresFound + utils.mineVein("forward")
         else utils.safeDig("forward") end
         if not utils.safeForward(false) then return false, 0 end
         
         if wallProtection then
-            oresFound = oresFound + checkAndProtectWall("down", "floor")
+            oresFound = oresFound + checkAndProtectWall("down", "floor-BL")
             oresFound = oresFound + checkAndProtectWall("forward", "left-wall")
         end
         
-        -- Move to BR (bottom-right) - turn to tunnel dir, move forward 2x
-        utils.turnTo(tunnelDir)
+        -- Move to BR (bottom-right)
+        utils.turnRight()
         if utils.isOre("forward") then oresFound = oresFound + utils.mineVein("forward")
         else utils.safeDig("forward") end
         if not utils.safeForward(false) then return false, 0 end
         if not utils.safeForward(false) then return false, 0 end
         
         if wallProtection then
-            oresFound = oresFound + checkAndProtectWall("down", "floor")
-            utils.turnTo(rightDir)
+            oresFound = oresFound + checkAndProtectWall("down", "floor-BR")
+            utils.turnRight()
             oresFound = oresFound + checkAndProtectWall("forward", "right-wall")
-            utils.turnTo(tunnelDir)
+            utils.turnLeft()
         end
         
         -- Move to TR (top-right)
         if not utils.safeUp(false) then return false, 0 end
         if wallProtection then
-            oresFound = oresFound + checkAndProtectWall("up", "ceiling")
-            utils.turnTo(rightDir)
+            oresFound = oresFound + checkAndProtectWall("up", "ceiling-TR")
+            utils.turnRight()
             oresFound = oresFound + checkAndProtectWall("forward", "right-wall")
-            utils.turnTo(tunnelDir)
+            utils.turnLeft()
         end
         
-        -- Move to TL (top-left) - turn left, move 2x
-        utils.turnTo(leftDir)
+        -- Move to TL (top-left)
+        utils.turnLeft()
         if not utils.safeForward(false) then return false, 0 end
         if not utils.safeForward(false) then return false, 0 end
+        utils.turnRight()
         
         if wallProtection then
-            oresFound = oresFound + checkAndProtectWall("up", "ceiling")
+            oresFound = oresFound + checkAndProtectWall("up", "ceiling-TL")
+            utils.turnLeft()
             oresFound = oresFound + checkAndProtectWall("forward", "left-wall")
+            utils.turnRight()
         end
         
         -- Return to middle and advance
         if not utils.safeDown(false) then return false, 0 end
-        utils.turnTo(tunnelDir)
+        utils.turnRight()
         if not utils.safeForward(false) then return false, 0 end
+        utils.turnLeft()
         
         -- Move forward through tunnel
         if utils.isOre("forward") then oresFound = oresFound + utils.mineVein("forward")
@@ -777,11 +810,6 @@ local function mineTunnelSection()
         
     else
         -- 2x1 (default): Simple 2-block vertical (just top and current)
-        -- Get absolute directions
-        local tunnelDir = utils.position.facing
-        local leftDir = (tunnelDir + 3) % 4
-        local rightDir = (tunnelDir + 1) % 4
-        
         -- Mine ceiling
         if utils.isOre("up") then oresFound = oresFound + utils.mineVein("up")
         else utils.safeDig("up") end
@@ -797,14 +825,15 @@ local function mineTunnelSection()
             return false, 0
         end
         
-        -- Check walls if protection enabled (use absolute directions)
+        -- Check walls if protection enabled
         if wallProtection then
             oresFound = oresFound + checkAndProtectWall("up", "ceiling")
-            utils.turnTo(leftDir)
-            oresFound = oresFound + checkAndProtectWall("forward", "left-wall")
-            utils.turnTo(rightDir)
-            oresFound = oresFound + checkAndProtectWall("forward", "right-wall")
-            utils.turnTo(tunnelDir)  -- Return to tunnel direction
+            utils.turnLeft()
+            oresFound = oresFound + checkAndProtectWall("forward", "left wall")
+            utils.turnRight()
+            utils.turnRight()
+            oresFound = oresFound + checkAndProtectWall("forward", "right wall")
+            utils.turnLeft()
         end
         
         return true, oresFound
@@ -878,11 +907,8 @@ local function mineTunnel(assignment)
         print("Moved to block 1 - starting pattern mining...")
     end
     
-    print("### Starting main mining loop: blocksMined=" .. blocksMined .. " tunnelLength=" .. tunnelLength .. " ###")
-    
     -- Mine tunnel
     while blocksMined < tunnelLength and running do
-        print("### Loop iteration: blocksMined=" .. blocksMined .. " ###")
         -- Check for pause command
         parallel.waitForAny(
             function()
@@ -940,10 +966,8 @@ local function mineTunnel(assignment)
             end
         end
         
-        print("### About to call mineTunnelSection at block " .. blocksMined .. " ###")
         -- Mine section
         local success, sectionOres = mineTunnelSection()
-        print("### mineTunnelSection returned: success=" .. tostring(success) .. " ores=" .. tostring(sectionOres) .. " ###")
         if not success then
             print("Mining failed at block " .. blocksMined)
             state.recordError(myState, "Mining failed")
