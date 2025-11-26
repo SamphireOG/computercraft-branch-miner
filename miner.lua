@@ -549,38 +549,89 @@ local function checkAndProtectWall(direction, wallName)
 end
 
 local function mine3x3Section()
-    -- Mine a complete 3x3 cross-section by visiting all 9 blocks systematically
-    -- Simple pattern: Mine 3 vertical layers (top, middle, bottom) in a sweep
+    -- Mine 3x3 using the proven pattern from reference file
+    -- 9-step pattern that visits all blocks efficiently
     local oresFound = 0
     local wallProtection = config.WALL_PROTECTION
+    local tunnelDir = utils.position.facing
+    local leftDir = (tunnelDir + 3) % 4  -- -1 mod 4
+    local rightDir = (tunnelDir + 1) % 4
     
-    -- LAYER 1: TOP ROW (TL, TM, TR)
-    -- Move up to top level
+    -- Grid positions (level=vertical, row=horizontal):
+    -- level 0=bottom, 1=middle, 2=top
+    -- row 0=left, 1=middle, 2=right
+    
+    -- Step 1: Start at MM (middle-middle) - dig here
+    if utils.isOre("up") then oresFound = oresFound + utils.mineVein("up")
+    else utils.safeDig("up") end
+    if utils.isOre("down") then oresFound = oresFound + utils.mineVein("down")
+    else utils.safeDig("down") end
+    
+    -- Step 2: Move to MR (middle-right)
+    utils.turnTo(rightDir)
+    if utils.isOre("forward") then oresFound = oresFound + utils.mineVein("forward")
+    else utils.safeDig("forward") end
+    if not utils.safeForward(false) then return false, 0 end
+    if wallProtection then
+        utils.turnRight()
+        oresFound = oresFound + checkAndProtectWall("forward", "right-wall")
+        utils.turnLeft()
+    end
+    
+    -- Step 3: Move down to BR (bottom-right)
+    if utils.isOre("down") then oresFound = oresFound + utils.mineVein("down")
+    else utils.safeDig("down") end
+    if not utils.safeDown(false) then return false, 0 end
+    if wallProtection then
+        oresFound = oresFound + checkAndProtectWall("down", "floor")
+        utils.turnRight()
+        oresFound = oresFound + checkAndProtectWall("forward", "right-wall")
+        utils.turnLeft()
+    end
+    
+    -- Step 4: Move to BM (bottom-middle)
+    utils.turnTo(leftDir)
+    if not utils.safeForward(false) then return false, 0 end
+    if wallProtection then
+        oresFound = oresFound + checkAndProtectWall("down", "floor")
+    end
+    
+    -- Step 5: Move to BL (bottom-left)
+    if not utils.safeForward(false) then return false, 0 end
+    if wallProtection then
+        oresFound = oresFound + checkAndProtectWall("down", "floor")
+        utils.turnRight()
+        oresFound = oresFound + checkAndProtectWall("forward", "left-wall")
+        utils.turnLeft()
+    end
+    
+    -- Step 6: Move up to ML (middle-left)
+    if not utils.safeUp(false) then return false, 0 end
+    if wallProtection then
+        utils.turnRight()
+        oresFound = oresFound + checkAndProtectWall("forward", "left-wall")
+        utils.turnLeft()
+    end
+    
+    -- Step 7: Move up to TL (top-left)
     if utils.isOre("up") then oresFound = oresFound + utils.mineVein("up")
     else utils.safeDig("up") end
     if not utils.safeUp(false) then return false, 0 end
-    
-    -- TM (top-middle) - check ceiling
     if wallProtection then
         oresFound = oresFound + checkAndProtectWall("up", "ceiling")
-    end
-    
-    -- Move to TL (top-left)
-    utils.turnLeft()
-    if utils.isOre("forward") then oresFound = oresFound + utils.mineVein("forward")
-    else utils.safeDig("forward") end
-    if not utils.safeForward(false) then return false, 0 end
-    if wallProtection then
-        oresFound = oresFound + checkAndProtectWall("up", "ceiling")
+        utils.turnRight()
         oresFound = oresFound + checkAndProtectWall("forward", "left-wall")
+        utils.turnLeft()
     end
     
-    -- Move back to TM and to TR (top-right)
-    utils.turnAround()
+    -- Step 8: Move to TM (top-middle)
+    utils.turnTo(rightDir)
     if not utils.safeForward(false) then return false, 0 end
-    utils.turnRight()
-    if utils.isOre("forward") then oresFound = oresFound + utils.mineVein("forward")
-    else utils.safeDig("forward") end
+    if wallProtection then
+        oresFound = oresFound + checkAndProtectWall("up", "ceiling")
+    end
+    
+    -- Step 9: Move to TR (top-right)
     if not utils.safeForward(false) then return false, 0 end
     if wallProtection then
         oresFound = oresFound + checkAndProtectWall("up", "ceiling")
@@ -589,80 +640,13 @@ local function mine3x3Section()
         utils.turnLeft()
     end
     
-    -- Return to TM
-    utils.turnLeft()
-    if not utils.safeForward(false) then return false, 0 end
-    utils.turnRight()
+    -- Return to MM (middle-middle) and advance
+    if not utils.safeDown(false) then return false, 0 end  -- TR to MR
+    utils.turnTo(leftDir)
+    if not utils.safeForward(false) then return false, 0 end  -- MR to MM
     
-    -- LAYER 2: MIDDLE ROW (ML, MM, MR)
-    -- Move down to middle level
-    if utils.isOre("down") then oresFound = oresFound + utils.mineVein("down")
-    else utils.safeDig("down") end
-    if not utils.safeDown(false) then return false, 0 end
-    
-    -- Move to ML (middle-left)
-    utils.turnLeft()
-    if not utils.safeForward(false) then return false, 0 end
-    if wallProtection then
-        oresFound = oresFound + checkAndProtectWall("forward", "left-wall")
-    end
-    
-    -- Return to MM and move to MR (middle-right)
-    utils.turnAround()
-    if not utils.safeForward(false) then return false, 0 end
-    utils.turnRight()
-    if not utils.safeForward(false) then return false, 0 end
-    if wallProtection then
-        utils.turnRight()
-        oresFound = oresFound + checkAndProtectWall("forward", "right-wall")
-        utils.turnLeft()
-    end
-    
-    -- Return to MM
-    utils.turnLeft()
-    if not utils.safeForward(false) then return false, 0 end
-    utils.turnRight()
-    
-    -- LAYER 3: BOTTOM ROW (BL, BM, BR)
-    -- Move down to bottom level
-    if utils.isOre("down") then oresFound = oresFound + utils.mineVein("down")
-    else utils.safeDig("down") end
-    if not utils.safeDown(false) then return false, 0 end
-    
-    -- BM (bottom-middle) - check floor
-    if wallProtection then
-        oresFound = oresFound + checkAndProtectWall("down", "floor")
-    end
-    
-    -- Move to BL (bottom-left)
-    utils.turnLeft()
-    if not utils.safeForward(false) then return false, 0 end
-    if wallProtection then
-        oresFound = oresFound + checkAndProtectWall("down", "floor")
-        oresFound = oresFound + checkAndProtectWall("forward", "left-wall")
-    end
-    
-    -- Return to BM and move to BR (bottom-right)
-    utils.turnAround()
-    if not utils.safeForward(false) then return false, 0 end
-    utils.turnRight()
-    if not utils.safeForward(false) then return false, 0 end
-    if wallProtection then
-        oresFound = oresFound + checkAndProtectWall("down", "floor")
-        utils.turnRight()
-        oresFound = oresFound + checkAndProtectWall("forward", "right-wall")
-        utils.turnLeft()
-    end
-    
-    -- Return to BM
-    utils.turnLeft()
-    if not utils.safeForward(false) then return false, 0 end
-    utils.turnRight()
-    
-    -- Return to MM (middle-middle) to prepare for forward movement
-    if not utils.safeUp(false) then return false, 0 end
-    
-    -- Advance forward one block to next cross-section
+    -- Face tunnel direction and move forward
+    utils.turnTo(tunnelDir)
     if utils.isOre("forward") then oresFound = oresFound + utils.mineVein("forward")
     else utils.safeDig("forward") end
     if not utils.safeForward(true) then return false, 0 end
