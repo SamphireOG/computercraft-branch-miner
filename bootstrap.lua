@@ -11,6 +11,8 @@ local files = {
     "config.lua", "protocol.lua", "state.lua", "utils.lua",
     "coordinator.lua", "miner.lua", "control.lua", "installer.lua",
     "project-server.lua", "project-client.lua",
+    "gui-advanced.lua", "turtle-gui-v2.lua",  -- GUI system files
+    "gui.lua", "turtle-gui.lua",  -- Old GUI files (if upgrading)
     "project_assignments.cfg"  -- Old buggy assignments file
 }
 
