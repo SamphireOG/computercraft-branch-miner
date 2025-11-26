@@ -1656,20 +1656,6 @@ local function mainLoop()
                     pcall(function()
                         coordinator.completeTunnel(data.assignmentID, data.blocksMined, data.oresFound)
                     end)
-                    
-                elseif msgType == protocol.MSG_TYPES.PROJECT_SETTINGS_REQUEST then
-                    pcall(function()
-                        -- Turtle is requesting current project settings
-                        if currentProject and currentProject.config then
-                            protocol.send(protocol.MSG_TYPES.PROJECT_SETTINGS_RESPONSE, {
-                                tunnelSize = currentProject.config.tunnelSize,
-                                wallProtection = currentProject.config.wallProtection,
-                                startY = currentProject.config.startY,
-                                tunnelLength = currentProject.config.tunnelLength,
-                                numLayers = currentProject.config.numLayers
-                            }, turtleID)
-                        end
-                    end)
                 end
             end
         end
