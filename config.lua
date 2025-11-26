@@ -12,9 +12,9 @@ local config = {
     
     -- Branch spacing based on tunnel size
     BRANCH_SPACING = {
-        ["2x1"] = 3,             -- 2x1 tunnels: 3 blocks apart
-        ["2x2"] = 5,             -- 2x2 tunnels: 5 blocks apart
-        ["3x3"] = 7              -- 3x3 tunnels: 7 blocks apart
+        ["2x1"] = 3,
+        ["2x2"] = 5,
+        ["3x3"] = 7
     },
     
     -- Tunnel features
@@ -98,7 +98,7 @@ local config = {
         ["minecraft:deepslate_emerald_ore"] = true,
         ["minecraft:nether_quartz_ore"] = true,
         ["minecraft:nether_gold_ore"] = true,
-        ["minecraft:ancient_debris"] = true,
+        ["minecraft:ancient_debris"] = true
     },
     
     -- Building blocks (goes to cobble chest)
@@ -113,7 +113,7 @@ local config = {
         ["minecraft:tuff"] = true,
         ["minecraft:dirt"] = true,
         ["minecraft:gravel"] = true,
-        ["minecraft:netherrack"] = true,
+        ["minecraft:netherrack"] = true
     },
     
     -- Fuel items
@@ -122,8 +122,8 @@ local config = {
         ["minecraft:charcoal"] = 80,
         ["minecraft:coal_block"] = 800,
         ["minecraft:lava_bucket"] = 1000,
-        ["minecraft:blaze_rod"] = 120,
-    },
+        ["minecraft:blaze_rod"] = 120
+    }
 }
 
 -- Helper functions
@@ -156,4 +156,3 @@ function config.validate()
 end
 
 return config
-
