@@ -598,6 +598,7 @@ local function digAt3x3Position(level, row, tunnelDir)
 end
 
 local function mine3x3Section()
+    print("=== MINE 3x3 SECTION CALLED ===")
     -- Mine 3x3 using TABLE-DRIVEN pattern from reference file
     -- Pattern: MM→MR→BR→BM→BL→ML→TL→TM→TR
     local oresFound = 0
@@ -676,12 +677,15 @@ local function mine3x3Section()
 end
 
 local function mineTunnelSection()
+    print("*** mineTunnelSection CALLED ***")
     -- Mine tunnel section based on configured size (2x1, 2x2, or 3x3)
     local oresFound = 0
     local tunnelSize = config.TUNNEL_SIZE or "2x2"
     local wallProtection = config.WALL_PROTECTION
+    print("*** tunnelSize = " .. tunnelSize .. " ***")
     
     if tunnelSize == "3x3" then
+        print("*** CALLING mine3x3Section ***")
         -- 3x3: Visit all 9 blocks in cross-section
         return mine3x3Section()
         
@@ -858,8 +862,11 @@ local function mineTunnel(assignment)
         print("Moved to block 1 - starting pattern mining...")
     end
     
+    print("### Starting main mining loop: blocksMined=" .. blocksMined .. " tunnelLength=" .. tunnelLength .. " ###")
+    
     -- Mine tunnel
     while blocksMined < tunnelLength and running do
+        print("### Loop iteration: blocksMined=" .. blocksMined .. " ###")
         -- Check for pause command
         parallel.waitForAny(
             function()
@@ -917,8 +924,10 @@ local function mineTunnel(assignment)
             end
         end
         
+        print("### About to call mineTunnelSection at block " .. blocksMined .. " ###")
         -- Mine section
         local success, sectionOres = mineTunnelSection()
+        print("### mineTunnelSection returned: success=" .. tostring(success) .. " ores=" .. tostring(sectionOres) .. " ###")
         if not success then
             print("Mining failed at block " .. blocksMined)
             state.recordError(myState, "Mining failed")
