@@ -161,27 +161,8 @@ local function initializeMiner()
                 myState = savedState
                 utils.setPosition(myState.position.x, myState.position.y, myState.position.z, myState.position.facing)
                 print("Resuming from saved state...")
-                
-                -- If turtle is at home, verify orientation with chest detection
-                local atHome = (myState.position.x == config.HOME_X and 
-                               myState.position.y == config.HOME_Y and 
-                               myState.position.z == config.HOME_Z)
-                
-                if atHome then
-                    print("")
-                    print("At home base - verifying orientation...")
-                    if utils.detectOrientation() then
-                        utils.position.x = config.HOME_X
-                        utils.position.y = config.HOME_Y
-                        utils.position.z = config.HOME_Z
-                        myState.position = utils.position
-                        print("✓ Orientation verified: " .. utils.facingNames[utils.position.facing + 1])
-                        state.save(myState)
-                    else
-                        print("⚠ Could not verify orientation")
-                    end
-                    print("")
-                end
+                print("(Orientation will be verified when leaving base)")
+                print("")
                 
                 return true
             end
@@ -200,17 +181,10 @@ local function initializeMiner()
     print("")
     myState.homePosition = {x = config.HOME_X, y = config.HOME_Y, z = config.HOME_Z}
     
-    -- ORIENTATION DETECTION: Find which way is forward by detecting chests
-    print("")
-    if utils.detectOrientation() then
-        utils.setPosition(config.HOME_X, config.HOME_Y, config.HOME_Z, utils.position.facing)
-    else
-        -- Fallback: assume facing north if detection fails
-        print("⚠ Using default orientation (North)")
-        utils.setPosition(config.HOME_X, config.HOME_Y, config.HOME_Z, 0)
-    end
+    -- Set initial position (orientation will be detected when leaving base)
+    utils.setPosition(config.HOME_X, config.HOME_Y, config.HOME_Z, 0)
     myState.position = utils.position
-    print("Facing: " .. utils.facingNames[utils.position.facing + 1])
+    print("Orientation will be detected when leaving base")
     print("")
     
     state.save(myState)
@@ -513,8 +487,27 @@ function navigateToTunnelStart(assignment)
     print("Navigating to tunnel start...")
     print("Type: " .. (assignment.tunnelType or "unknown") .. ", Direction: " .. (assignment.direction or "unknown"))
     
-    -- Debug: Show current position and target
+    -- Detect orientation if at home base (before leaving)
     local currX, currY, currZ, currF = utils.getPosition()
+    local atHome = (currX == config.HOME_X and currY == config.HOME_Y and currZ == config.HOME_Z)
+    
+    if atHome then
+        print("")
+        print("At home base - detecting orientation...")
+        if utils.detectOrientation() then
+            utils.position.x = config.HOME_X
+            utils.position.y = config.HOME_Y
+            utils.position.z = config.HOME_Z
+            myState.position = utils.position
+            print("✓ Orientation detected: " .. utils.facingNames[utils.position.facing + 1])
+            state.save(myState)
+        else
+            print("⚠ Could not detect orientation - using current facing")
+        end
+        print("")
+    end
+    
+    -- Debug: Show current position and target
     print("Current: X=" .. currX .. " Y=" .. currY .. " Z=" .. currZ)
     
     local startPos = assignment.startPos
